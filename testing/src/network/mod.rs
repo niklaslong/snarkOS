@@ -23,6 +23,8 @@ pub mod encryption;
 #[cfg(test)]
 pub mod sync;
 
+pub mod topology;
+
 use crate::consensus::{FIXTURE, FIXTURE_VK, TEST_CONSENSUS};
 
 use snarkos_network::{connection_reader::ConnReader, connection_writer::ConnWriter, errors::*, *};
