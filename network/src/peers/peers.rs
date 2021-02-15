@@ -139,7 +139,7 @@ impl Node {
 
         // -> e
         let len = noise.write_message(&[], &mut buffer)?;
-        println!("len: {}", len);
+        // println!("len: {}", len);
         writer.write_all(&[len as u8]).await?;
         writer.write_all(&buffer[..len]).await?;
         trace!("sent e (XX handshake part 1/3)");
@@ -308,8 +308,10 @@ impl Node {
     pub(crate) fn disconnect_from_peer(&self, remote_address: SocketAddr) -> Result<(), NetworkError> {
         debug!("Disconnecting from {}", remote_address);
 
-        if self.peer_book.read().is_syncing_blocks(remote_address) {
-            self.consensus().finished_syncing_blocks();
+        if self.has_consensus() {
+            if self.peer_book.read().is_syncing_blocks(remote_address) {
+                self.consensus().finished_syncing_blocks();
+            }
         }
 
         if let Some(handle) = self.inbound.tasks.lock().remove(&remote_address) {
