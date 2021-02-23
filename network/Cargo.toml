@@ -43,7 +43,7 @@ tracing-futures = { version = "0.2" }
 
 [dev-dependencies]
 snarkos-testing = { path = "../testing" }
-jsonrpc-http-server = "15.0"
+jsonrpc-http-server = "17.0"
 
 [build-dependencies]
 rustc_version = "0.2"

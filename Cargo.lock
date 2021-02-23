@@ -1553,16 +1553,16 @@ dependencies = [
 
 [[package]]
 name = "jsonrpc-http-server"
-version = "15.1.0"
+version = "17.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb5c4513b7b542f42da107942b7b759f27120b5cc894729f88254b28dff44b7"
+checksum = "eff2303c4f0562afcbd2dae75e3e21815095f8994749a80fbcd365877e44ed64"
 dependencies = [
  "hyper 0.12.36",
  "jsonrpc-core 15.1.0",
  "jsonrpc-server-utils 15.1.0",
  "log",
  "net2",
- "parking_lot 0.10.2",
+ "parking_lot 0.11.1",
  "unicase",
 ]
 
@@ -1597,17 +1597,18 @@ dependencies = [
 
 [[package]]
 name = "jsonrpc-server-utils"
-version = "15.1.0"
+version = "17.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72f1f3990650c033bd8f6bd46deac76d990f9bbfb5f8dc8c4767bf0a00392176"
+checksum = "f4207cce738bf713a82525065b750a008f28351324f438f56b33d698ada95bb4"
 dependencies = [
- "bytes 0.4.12",
+ "bytes 0.5.6",
+ "futures 0.3.12",
  "globset",
- "jsonrpc-core 15.1.0",
+ "jsonrpc-core 17.0.0",
  "lazy_static",
  "log",
- "tokio 0.1.22",
- "tokio-codec",
+ "tokio 0.2.25",
+ "tokio-util 0.3.1",
  "unicase",
 ]
 
@@ -2995,7 +2996,7 @@ dependencies = [
  "capnpc",
  "chrono",
  "hex",
- "jsonrpc-http-server 15.1.0",
+ "jsonrpc-http-server 17.0.0",
  "log",
  "parking_lot 0.11.1",
  "rand 0.8.3",
