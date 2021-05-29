@@ -65,6 +65,8 @@ pub struct InnerNode<S: Storage> {
     pub peer_book: PeerBook,
     /// The sync handler of this node.
     pub sync: OnceCell<Arc<Sync<S>>>,
+    /// Tracks the network topology crawled by this node.
+    pub network_topology: OnceCell<NetworkTopology>,
     /// The node's start-up timestamp.
     pub launched: DateTime<Utc>,
     /// The tasks spawned by the node.
@@ -136,6 +138,12 @@ impl<S: Storage> Node<S> {
 impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
     /// Creates a new instance of `Node`.
     pub async fn new(config: Config) -> Result<Self, NetworkError> {
+        // FIXME(nkls): feature-gate.
+        let network_topology = OnceCell::new();
+        network_topology
+            .set(NetworkTopology::default())
+            .expect("network topology was set more than once!");
+
         Ok(Self(Arc::new(InnerNode {
             id: thread_rng().gen(),
             state: Default::default(),
@@ -145,6 +153,7 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
             outbound: Default::default(),
             peer_book: Default::default(),
             sync: Default::default(),
+            network_topology,
             launched: Utc::now(),
             tasks: Default::default(),
             threads: Default::default(),
@@ -316,6 +325,19 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
                 }
             });
             self.register_task(sync_block_task);
+        }
+
+        if self.network_topology.get().is_some() {
+            let node_clone = self.clone();
+
+            let crawler_task = tokio::task::spawn(async move {
+                loop {
+                    debug!("Crawler: {:?}", node_clone.network_topology.get());
+                    node_clone.crawl_peer();
+                    sleep(std::time::Duration::from_secs(30)).await;
+                }
+            });
+            self.register_task(crawler_task);
         }
     }
 

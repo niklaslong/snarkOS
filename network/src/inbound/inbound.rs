@@ -278,7 +278,7 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
             Payload::Peers(peers) => {
                 metrics::increment_counter!(stats::INBOUND_PEERS);
 
-                self.process_inbound_peers(peers);
+                self.process_inbound_peers(source, peers);
             }
             Payload::Ping(block_height) => {
                 metrics::increment_counter!(stats::INBOUND_PINGS);

@@ -290,6 +290,46 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
         }
     }
 
+    pub(crate) fn crawl_peer(&self) {
+        // Local address must be known by now.
+        let own_address = self.local_address().unwrap();
+
+        let bootnodes = self.config.bootnodes();
+
+        // Iterate through a selection of random peers and attempt to connect.
+        if let Some(remote_address) = self
+            .peer_book
+            .disconnected_peers()
+            .iter()
+            .map(|(k, _)| k)
+            .filter(|peer| **peer != own_address && !bootnodes.contains(peer))
+            .copied()
+            .choose(&mut rand::thread_rng())
+        {
+            // Establish a connection with the selected peer.
+            let node = self.clone();
+            tokio::task::spawn(async move {
+                match node.initiate_connection(remote_address).await {
+                    Err(NetworkError::PeerAlreadyConnecting) | Err(NetworkError::PeerAlreadyConnected) => {
+                        // no issue here, already connecting
+                    }
+                    Err(e @ NetworkError::TooManyConnections) | Err(e @ NetworkError::SelfConnectAttempt) => {
+                        warn!("Couldn't connect to peer {}: {}", remote_address, e);
+                        // the connection hasn't been established, no need to disconnect
+                    }
+                    Err(e) => {
+                        warn!("Couldn't connect to peer {}: {}", remote_address, e);
+                        node.disconnect_from_peer(remote_address);
+                    }
+                    Ok(_) => {}
+                }
+            });
+
+            // Query the peer for its peers.
+            self.send_request(Message::new(Direction::Outbound(remote_address), Payload::GetPeers));
+        }
+    }
+
     ///
     /// Broadcasts a connection request to all disconnected peers.
     ///
@@ -510,14 +550,21 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
     /// A node has sent their list of peer addresses.
     /// Add all new/updated addresses to our disconnected.
     /// The connection handler will be responsible for sending out handshake requests to them.
-    pub(crate) fn process_inbound_peers(&self, peers: Vec<SocketAddr>) {
+    pub(crate) fn process_inbound_peers(&self, source: SocketAddr, peers: Vec<SocketAddr>) {
         let local_address = self.local_address().unwrap(); // the address must be known by now
 
-        for peer_address in peers.into_iter().filter(|&peer_addr| peer_addr != local_address) {
+        for peer_address in peers.iter().filter(|&peer_addr| *peer_addr != local_address).copied() {
             // Inform the peer book that we found a peer.
             // The peer book will determine if we have seen the peer before,
             // and include the peer if it is new.
             self.peer_book.add_peer(peer_address);
+        }
+
+        if let Some(topology) = self.network_topology.get() {
+            // If this node is tracking the network topology, record the connections. This can
+            // then be used to construct the graph and query peer info from the peerbook.
+
+            topology.update(source, peers);
         }
     }
 

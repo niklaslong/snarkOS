@@ -29,6 +29,8 @@ use std::{
     net::SocketAddr,
 };
 
+use parking_lot::RwLock;
+
 #[derive(Debug, Eq, Copy, Clone)]
 struct Connection((SocketAddr, SocketAddr));
 
@@ -60,13 +62,13 @@ impl Hash for Connection {
 }
 
 /// Keeps track of crawled peers and their connections.
-#[derive(Default)]
-struct NetworkTopology {
-    connections: HashSet<Connection>,
+#[derive(Default, Debug)]
+pub struct NetworkTopology {
+    connections: RwLock<HashSet<Connection>>,
 }
 
 impl NetworkTopology {
-    fn update(&mut self, source: SocketAddr, peers: Vec<SocketAddr>) {
+    pub(crate) fn update(&self, source: SocketAddr, peers: Vec<SocketAddr>) {
         // Rules:
         //  - if a connecton exists already, do nothing.
         //  - if a connection is new, add it.
@@ -81,6 +83,7 @@ impl NetworkTopology {
         // removed.
         let connections_to_remove: HashSet<Connection> = self
             .connections
+            .read()
             .difference(&new_connections)
             .filter(|Connection((a, b))| a == &source || b == &source)
             .copied()
@@ -88,40 +91,13 @@ impl NetworkTopology {
 
         // Only retain connections that aren't removed.
         self.connections
+            .write()
             .retain(|connection| !connections_to_remove.contains(&connection));
 
         // Insert new connections.
-        self.connections.extend(new_connections.iter());
+        self.connections.write().extend(new_connections.iter());
     }
 }
-
-// impl<S: Storage> Node<S> {
-//     pub(crate) fn crawl_peers(&self, crawl_node: SocketAddr) {
-//         // 1. Connect, handshake and request peers.
-//         // 2. Store links in Crawler.
-//
-//         // Establish a connection with the selected peer.
-//         tokio::task::spawn(async move {
-//             match node.initiate_connection(remote_address).await {
-//                 Err(NetworkError::PeerAlreadyConnecting) | Err(NetworkError::PeerAlreadyConnected) => {
-//                     // no issue here, already connecting
-//                 }
-//                 Err(e @ NetworkError::TooManyConnections) | Err(e @ NetworkError::SelfConnectAttempt) => {
-//                     warn!("Couldn't connect to peer {}: {}", remote_address, e);
-//                     // the connection hasn't been established, no need to disconnect
-//                 }
-//                 Err(e) => {
-//                     warn!("Couldn't connect to peer {}: {}", remote_address, e);
-//                     node.disconnect_from_peer(remote_address);
-//                 }
-//                 Ok(_) => {}
-//             }
-//         });
-//
-//         // Query the peer for its peers.
-//         self.send_request(Message::new(Direction::Outbound(crawl_node), Payload::GetPeers));
-//     }
-// }
 
 #[cfg(test)]
 mod test {
@@ -142,21 +118,21 @@ mod test {
         let b = "22.22.22.22:2000".parse().unwrap();
         let c = "33.33.33.33:3000".parse().unwrap();
 
-        let mut topology = NetworkTopology::default();
+        let topology = NetworkTopology::default();
 
         // Insert two connections.
         topology.update(a, vec![b, c]);
-        assert!(topology.connections.contains(&Connection((a, b))));
-        assert!(topology.connections.contains(&Connection((a, c))));
+        assert!(topology.connections.read().contains(&Connection((a, b))));
+        assert!(topology.connections.read().contains(&Connection((a, c))));
 
         // Insert (a, b) connection reversed, make sure it doesn't change the list.
         topology.update(b, vec![a]);
-        assert!(topology.connections.len() == 2);
+        assert!(topology.connections.read().len() == 2);
 
         // Update c connections but don't include (c, a) == (a, c) and expect it to be removed.
         topology.update(c, vec![b]);
-        assert!(!topology.connections.contains(&Connection((a, c))));
-        assert!(topology.connections.contains(&Connection((c, b))));
+        assert!(!topology.connections.read().contains(&Connection((a, c))));
+        assert!(topology.connections.read().contains(&Connection((c, b))));
     }
 
     #[test]
