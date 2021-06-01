@@ -290,6 +290,9 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
         }
     }
 
+    ///
+    /// Selects and connects to a disconnected peer in order to crawl the network.
+    ///
     pub(crate) fn crawl_peer(&self) {
         // Local address must be known by now.
         let own_address = self.local_address().unwrap();
