@@ -332,7 +332,20 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
 
             let crawler_task = tokio::task::spawn(async move {
                 loop {
-                    debug!("Crawler: {:?}", node_clone.network_topology.get());
+                    if node_clone.network_topology.get().unwrap().has_connections() {
+                        let now = std::time::Instant::now();
+                        let metrics = NetworkMetrics::new(node_clone.network_topology.get().unwrap());
+
+                        // println!("METRICS ({:?}): {:#?}", now.elapsed(), metrics);
+                        debug!(
+                            "METRICS ({:?}) | node count: {} | connection count: {} | degree centrality delta: {}",
+                            now.elapsed(),
+                            metrics.node_count,
+                            metrics.connection_count,
+                            metrics.degree_centrality_delta
+                        );
+                    }
+
                     node_clone.crawl_peer();
                     sleep(std::time::Duration::from_secs(30)).await;
                 }

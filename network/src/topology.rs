@@ -112,9 +112,9 @@ impl NetworkTopology {
 #[derive(Debug)]
 pub struct NetworkMetrics {
     /// The total node count of the network.
-    node_count: usize,
+    pub node_count: usize,
     /// The total connection count for the network.
-    connection_count: usize,
+    pub connection_count: usize,
     /// The network density.
     ///
     /// This is defined as actual connections divided by the total number of possible connections.
@@ -126,7 +126,7 @@ pub struct NetworkMetrics {
     algebraic_connectivity: f64,
     /// The difference between the node with the largest connection count and the node with the
     /// lowest.
-    degree_centrality_delta: f64,
+    pub degree_centrality_delta: f64,
     /// Node centrality measurements mapped to each node's address.
     ///
     /// Includes degree centrality, eigenvector centrality (the relative importance of a node in
@@ -160,7 +160,7 @@ impl NetworkMetrics {
         let adjacency_matrix = adjacency_matrix(&index, connections);
         // The degree matrix can be built from the adjacency matrix (row sum is connection count).
         let degree_matrix = degree_matrix(&index, &adjacency_matrix);
-        // The laplacian matrix is degree matrix minus the adjacence matrix.
+        // The laplacian matrix is the degree matrix minus the adjacency matrix.
         let laplacian_matrix = degree_matrix.clone().sub(&adjacency_matrix);
 
         let degree_centrality = degree_centrality(&index, &degree_matrix.clone());
