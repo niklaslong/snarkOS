@@ -185,6 +185,10 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
         self.sync().is_some()
     }
 
+    pub fn expect_network_topology(&self) -> &NetworkTopology {
+        self.network_topology.get().expect("no network topology!")
+    }
+
     pub async fn start_services(&self) {
         let node_clone = self.clone();
         let mut receiver = self.inbound.take_receiver();
@@ -332,7 +336,8 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
 
             let crawler_task = tokio::task::spawn(async move {
                 loop {
-                    if node_clone.network_topology.get().unwrap().has_connections() {
+                    // Calculate metrics.
+                    if node_clone.expect_network_topology().has_connections() {
                         let now = std::time::Instant::now();
                         let metrics = NetworkMetrics::new(node_clone.network_topology.get().unwrap());
 
@@ -344,10 +349,22 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
                             metrics.connection_count,
                             metrics.degree_centrality_delta
                         );
+
+                        let network_topology = node_clone.expect_network_topology();
+                        debug!(
+                            "NETWORK TOPOLOGY | routable: {} | unroutable: {} | never crawled: {}",
+                            network_topology.routable_count(),
+                            network_topology.unroutable_count(),
+                            network_topology.never_crawled_count()
+                        );
                     }
 
-                    node_clone.crawl_peer();
-                    sleep(std::time::Duration::from_secs(30)).await;
+                    //FIXME: add to configuration.
+                    let count = 10;
+                    let duration = std::time::Duration::from_secs(30);
+                    node_clone.crawl_peers(count, duration);
+
+                    sleep(duration).await;
                 }
             });
             self.register_task(crawler_task);

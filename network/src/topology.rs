@@ -66,15 +66,24 @@ impl Hash for Connection {
 /// Keeps track of crawled peers and their connections.
 #[derive(Default, Debug)]
 pub struct NetworkTopology {
-    crawled: RwLock<HashSet<SocketAddr>>,
-    never_crawled: RwLock<HashSet<SocketAddr>>,
-    unroutable: RwLock<HashSet<SocketAddr>>,
+    pub routable: RwLock<HashSet<SocketAddr>>,
+    pub unroutable: RwLock<HashSet<SocketAddr>>,
+    pub never_crawled: RwLock<HashSet<SocketAddr>>,
     connections: RwLock<HashSet<Connection>>,
 }
 
 impl NetworkTopology {
     pub(crate) fn update(&self, source: SocketAddr, peers: Vec<SocketAddr>) {
-        // Rules:
+        // Update the peer sets.
+        for peer in &peers {
+            // Insert the peer if we're not alread tracking state for it.
+            if !self.routable.read().contains(&peer) && !self.unroutable.read().contains(&peer) {
+                self.never_crawled.write().insert(*peer);
+            }
+        }
+
+        // Update the connections:
+        //
         //  - if a connecton exists already, do nothing.
         //  - if a connection is new, add it.
         //  - if an exisitng connection involving the source isn't in the peerlist, remove it.
@@ -105,6 +114,36 @@ impl NetworkTopology {
 
     pub fn has_connections(&self) -> bool {
         self.connections.read().len() > 0
+    }
+
+    pub fn routable_count(&self) -> usize {
+        self.routable.read().len()
+    }
+
+    pub fn unroutable_count(&self) -> usize {
+        self.unroutable.read().len()
+    }
+
+    pub fn never_crawled_count(&self) -> usize {
+        self.never_crawled.read().len()
+    }
+
+    pub fn set_routable(&self, addr: SocketAddr) {
+        // Remove from the other sets if present...
+        self.unroutable.write().remove(&addr);
+        self.never_crawled.write().remove(&addr);
+
+        // ...and insert.
+        self.routable.write().insert(addr);
+    }
+
+    pub fn set_unroutable(&self, addr: SocketAddr) {
+        // Remove from the other sets if present...
+        self.never_crawled.write().remove(&addr);
+        self.routable.write().remove(&addr);
+
+        // ...and insert.
+        self.unroutable.write().insert(addr);
     }
 }
 
