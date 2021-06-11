@@ -49,6 +49,9 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
     /// Broadcasts updates with connected peers and maintains a permitted number of connected peers.
     ///
     pub(crate) fn update_peers(&self) {
+        let min_peers = self.config.minimum_number_of_connected_peers() as usize;
+        let max_peers = self.config.maximum_number_of_connected_peers() as usize;
+
         // Fetch the number of connected and connecting peers.
         let number_of_connected_peers = self.peer_book.number_of_connected_peers() as usize;
         let number_of_connecting_peers = self.peer_book.number_of_connecting_peers() as usize;
@@ -82,9 +85,22 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
         }
 
         // Disconnect from peers if this node server is above the permitted number.
-        let max_peers = self.config.maximum_number_of_connected_peers() as usize;
-        if number_of_connected_peers > max_peers {
-            let number_to_disconnect = number_of_connected_peers - max_peers;
+        let disconnect_delta = |actual: usize, limit: usize| -> usize {
+            if actual > limit {
+                return actual - limit;
+            }
+
+            0
+        };
+
+        // Bootnodes will disconnect in order to free up room for the next crawl (close to the min peer count),
+        // other nodes will disconnect if above the max peer count.
+        let number_to_disconnect = match self.config.is_bootnode() {
+            true => disconnect_delta(number_of_connected_peers, min_peers),
+            false => disconnect_delta(number_of_connected_peers, max_peers),
+        };
+
+        if number_to_disconnect != 0 {
             trace!(
                 "Disconnecting from {} peers to maintain their permitted number",
                 number_to_disconnect
