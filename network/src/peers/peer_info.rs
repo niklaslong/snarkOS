@@ -32,9 +32,11 @@ use std::{
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PeerStatus {
-    Connected,
-    Disconnected,
-    NeverConnected,
+    Routable,
+    Unroutable,
+    // Peers provided in peer lists are connected to the node providing the list => should be
+    // considered routable by default.
+    // NeverConnected,
 }
 
 #[derive(Debug, Default)]
@@ -76,9 +78,13 @@ impl PeerQuality {
 pub struct PeerInfo {
     /// The IP address of this peer.
     address: SocketAddr,
-    /// The timestamp of the first seen instance of this peer.
-    first_seen: Option<DateTime<Utc>>,
-    /// The timestamp of the last seen instance of this peer.
+    /// Indicates if the address is routable.
+    /// Peers received in peer lists are assumed to be routable as the peer providing the addrs
+    /// should be connected to them.
+    is_routable: bool,
+    /// The timestamp of the first successful connection made with this peer.
+    first_connected: Option<DateTime<Utc>>,
+    /// The timestamp of the last successful connection made with this peer.
     last_connected: Option<DateTime<Utc>>,
     /// The timestamp of the last disconnect from this peer.
     last_disconnected: Option<DateTime<Utc>>,
@@ -102,7 +108,8 @@ impl PeerInfo {
     pub fn new(address: SocketAddr) -> Self {
         Self {
             address,
-            first_seen: None,
+            is_routable: true,
+            first_connected: None,
             last_connected: None,
             last_disconnected: None,
             connected_count: 0,
@@ -164,9 +171,11 @@ impl PeerInfo {
     ///
     pub(crate) fn set_connected(&mut self) {
         let now = Utc::now();
-        if self.first_seen.is_none() {
-            self.first_seen = Some(now);
+
+        if self.first_connected.is_none() {
+            self.first_connected = Some(now);
         }
+
         self.last_connected = Some(now);
         *self.quality.last_seen.write() = Some(now);
         self.connected_count += 1;

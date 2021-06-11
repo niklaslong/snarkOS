@@ -63,7 +63,7 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
         // Fetch the bootnodes.
         let bootnodes = self.config.bootnodes();
 
-        // Drop peers whose RTT is too high or have too many failures.
+        // Disconnect from peers whose RTT is too high or have too many failures.
         let now = chrono::Utc::now();
         for (addr, peer_quality) in self
             .peer_book
@@ -81,18 +81,7 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
             }
         }
 
-        // Attempt to connect to the default bootnodes of the network.
-        self.connect_to_bootnodes();
-
-        // Attempt to connect to each disconnected peer saved in the peer book.
-        if !self.config.is_bootnode() {
-            self.connect_to_disconnected_peers();
-        }
-
-        // Broadcast a `GetPeers` message to request for more peers.
-        self.broadcast_getpeers_requests();
-
-        // Check if this node server is above the permitted number of connected peers.
+        // Disconnect from peers if this node server is above the permitted number.
         let max_peers = self.config.maximum_number_of_connected_peers() as usize;
         if number_of_connected_peers > max_peers {
             let number_to_disconnect = number_of_connected_peers - max_peers;
@@ -121,7 +110,20 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
             }
         }
 
+        // Attempt to connect to the default bootnodes of the network.
+        if number_of_connected_peers == 0 {
+            self.connect_to_bootnodes();
+        }
+
+        // Attempt to connect to each disconnected peer saved in the peer book.
+        if !self.config.is_bootnode() {
+            self.connect_to_disconnected_peers();
+        }
+
         if number_of_connected_peers != 0 {
+            // Broadcast a `GetPeers` message to request for more peers.
+            self.broadcast_getpeers_requests();
+
             // Send a `Ping` to every connected peer.
             self.broadcast_pings();
         }
@@ -349,7 +351,6 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
         // Local address must be known by now.
         let own_address = self.local_address().unwrap();
 
-        // If this node is a bootnode, attempt to connect to all disconnected peers.
         // If this node is not a bootnode, attempt to satisfy the minimum number of peer connections.
         let random_peers = {
             // Fetch the number of connected and connecting peers.
