@@ -306,6 +306,7 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
                     Err(e) => {
                         warn!("Couldn't connect to bootnode {}: {}", bootnode_address, e);
                         node.disconnect_from_peer(bootnode_address);
+                        node.peer_book.set_unroutable(bootnode_address);
                     }
                     Ok(_) => {}
                 }
@@ -313,57 +314,57 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
         }
     }
 
-    pub(crate) fn crawl_peers(&self, count: usize, duration: std::time::Duration) {
-        // Should be known at this point.
-        let own_address = self.local_address().unwrap();
-        let bootnodes = self.config.bootnodes();
+    // pub(crate) fn crawl_peers(&self, count: usize, duration: std::time::Duration) {
+    //     // Should be known at this point.
+    //     let own_address = self.local_address().unwrap();
+    //     let bootnodes = self.config.bootnodes();
 
-        // returns at most `count` addrs
-        let addrs = self
-            .expect_network_topology()
-            .never_crawled
-            .read()
-            .iter()
-            .filter(|peer| **peer != own_address && !bootnodes.contains(peer))
-            .copied()
-            .choose_multiple(&mut rand::thread_rng(), count);
+    //     // returns at most `count` addrs
+    //     let addrs = self
+    //         .expect_network_topology()
+    //         .never_crawled
+    //         .read()
+    //         .iter()
+    //         .filter(|peer| **peer != own_address && !bootnodes.contains(peer))
+    //         .copied()
+    //         .choose_multiple(&mut rand::thread_rng(), count);
 
-        // FIXME: also choose some routable and unroutable addrs to retry?
+    //     // FIXME: also choose some routable and unroutable addrs to retry?
 
-        for remote_address in addrs {
-            let node_clone = self.clone();
-            tokio::spawn(async move {
-                match node_clone.initiate_connection(remote_address).await {
-                    Err(NetworkError::PeerAlreadyConnecting) | Err(NetworkError::PeerAlreadyConnected) => {
-                        // no issue here, already connecting
-                    }
-                    Err(e @ NetworkError::TooManyConnections) | Err(e @ NetworkError::SelfConnectAttempt) => {
-                        warn!("Couldn't connect to peer {}: {}", remote_address, e);
-                        // the connection hasn't been established, no need to disconnect
-                    }
-                    Err(e) => {
-                        warn!("Couldn't connect to peer {}: {}", remote_address, e);
-                        node_clone.disconnect_from_peer(remote_address);
+    //     for remote_address in addrs {
+    //         let node_clone = self.clone();
+    //         tokio::spawn(async move {
+    //             match node_clone.initiate_connection(remote_address).await {
+    //                 Err(NetworkError::PeerAlreadyConnecting) | Err(NetworkError::PeerAlreadyConnected) => {
+    //                     // no issue here, already connecting
+    //                 }
+    //                 Err(e @ NetworkError::TooManyConnections) | Err(e @ NetworkError::SelfConnectAttempt) => {
+    //                     warn!("Couldn't connect to peer {}: {}", remote_address, e);
+    //                     // the connection hasn't been established, no need to disconnect
+    //                 }
+    //                 Err(e) => {
+    //                     warn!("Couldn't connect to peer {}: {}", remote_address, e);
+    //                     node_clone.disconnect_from_peer(remote_address);
 
-                        // mark the peer as unroutable
-                        node_clone.expect_network_topology().set_unroutable(remote_address);
-                    }
-                    Ok(_) => {
-                        // keep track of the crawled peer
-                        node_clone.expect_network_topology().set_routable(remote_address);
+    //                     // mark the peer as unroutable
+    //                     node_clone.expect_network_topology().set_unroutable(remote_address);
+    //                 }
+    //                 Ok(_) => {
+    //                     // keep track of the crawled peer
+    //                     node_clone.expect_network_topology().set_routable(remote_address);
 
-                        // request peer data
-                        node_clone.send_request(Message::new(Direction::Outbound(remote_address), Payload::GetPeers));
+    //                     // request peer data
+    //                     node_clone.send_request(Message::new(Direction::Outbound(remote_address), Payload::GetPeers));
 
-                        // disconnect from the peer at the end of the interval.
-                        tokio::time::sleep(duration).await;
+    //                     // disconnect from the peer at the end of the interval.
+    //                     tokio::time::sleep(duration).await;
 
-                        node_clone.disconnect_from_peer(remote_address);
-                    }
-                }
-            });
-        }
-    }
+    //                     node_clone.disconnect_from_peer(remote_address);
+    //                 }
+    //             }
+    //         });
+    //     }
+    // }
 
     ///
     /// Broadcasts a connection request to all disconnected peers.
@@ -405,6 +406,7 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
                     Err(e) => {
                         warn!("Couldn't connect to peer {}: {}", remote_address, e);
                         node.disconnect_from_peer(remote_address);
+                        node.peer_book.set_unroutable(remote_address);
                     }
                     Ok(_) => {}
                 }

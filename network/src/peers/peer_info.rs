@@ -179,6 +179,9 @@ impl PeerInfo {
         self.last_connected = Some(now);
         *self.quality.last_seen.write() = Some(now);
         self.connected_count += 1;
+
+        // set peer as routable, this only ever happens on successful connection.
+        self.set_is_routable(true);
     }
 
     ///
@@ -204,6 +207,10 @@ impl PeerInfo {
                 });
             }
         }
+    }
+
+    pub(crate) fn set_is_routable(&mut self, is_routable: bool) {
+        self.is_routable = is_routable;
     }
 
     pub(crate) fn register_task(&self, handle: task::JoinHandle<()>, abortable: bool) {

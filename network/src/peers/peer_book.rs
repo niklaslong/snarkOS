@@ -254,6 +254,13 @@ impl PeerBook {
         false
     }
 
+    pub fn set_unroutable(&self, address: SocketAddr) {
+        // An unroutable peer must be disconnected.
+        if let Some(peer_info) = self.disconnected_peers.write().get_mut(&address) {
+            peer_info.set_is_routable(false);
+        }
+    }
+
     ///
     /// Adds the given address to the disconnected peers in this `PeerBook`.
     ///
