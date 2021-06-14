@@ -383,11 +383,21 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
             let bootnodes = self.config.bootnodes();
 
             // Iterate through a selection of random peers and attempt to connect.
-            self.peer_book
+            let mut candidates: Vec<_> = self
+                .peer_book
                 .disconnected_peers()
                 .iter()
-                .map(|(k, _)| k)
-                .filter(|peer| **peer != own_address && !bootnodes.contains(peer))
+                .filter(|(addr, info)| **addr != own_address && !bootnodes.contains(addr) && info.is_routable())
+                .map(|(addr, info)| (*addr, info.clone()))
+                .collect();
+
+            if self.config.is_bootnode() {
+                candidates.sort_unstable_by_key(|(_, info)| info.last_connected());
+            }
+
+            candidates
+                .iter()
+                .map(|(addr, _)| addr)
                 .copied()
                 .choose_multiple(&mut rand::thread_rng(), count)
         };

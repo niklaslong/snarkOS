@@ -126,6 +126,11 @@ impl PeerInfo {
         self.address
     }
 
+    #[inline]
+    pub fn is_routable(&self) -> bool {
+        self.is_routable
+    }
+
     ///
     /// Returns the current block height of this peer.
     ///
@@ -180,7 +185,7 @@ impl PeerInfo {
         *self.quality.last_seen.write() = Some(now);
         self.connected_count += 1;
 
-        // set peer as routable, this only ever happens on successful connection.
+        // Set peer as routable, this only ever happens on successful connection.
         self.set_is_routable(true);
     }
 
