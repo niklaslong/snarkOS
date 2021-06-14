@@ -52,17 +52,6 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
         let min_peers = self.config.minimum_number_of_connected_peers() as usize;
         let max_peers = self.config.maximum_number_of_connected_peers() as usize;
 
-        // Fetch the number of connected and connecting peers.
-        let number_of_connected_peers = self.peer_book.number_of_connected_peers() as usize;
-        let number_of_connecting_peers = self.peer_book.number_of_connecting_peers() as usize;
-
-        trace!(
-            "Connected to {} peer{}, connecting to {}",
-            number_of_connected_peers,
-            if number_of_connected_peers == 1 { "" } else { "s" },
-            number_of_connecting_peers
-        );
-
         // Fetch the bootnodes.
         let bootnodes = self.config.bootnodes();
 
@@ -84,20 +73,35 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
             }
         }
 
-        // Disconnect from peers if this node server is above the permitted number.
-        let disconnect_delta = |actual: usize, limit: usize| -> usize {
-            if actual > limit {
-                return actual - limit;
-            }
+        // Fetch the number of connected and connecting peers after the RTT disconnects.
+        let number_of_connected_peers = self.peer_book.number_of_connected_peers() as usize;
+        let number_of_connecting_peers = self.peer_book.number_of_connecting_peers() as usize;
+        let number_of_peers = number_of_connected_peers + number_of_connecting_peers;
 
-            0
-        };
+        trace!(
+            "Connected to {} peer{}, connecting to {}",
+            number_of_connected_peers,
+            if number_of_connected_peers == 1 { "" } else { "s" },
+            number_of_connecting_peers
+        );
 
-        // Bootnodes will disconnect in order to free up room for the next crawl (close to the min peer count),
-        // other nodes will disconnect if above the max peer count.
-        let number_to_disconnect = match self.config.is_bootnode() {
-            true => disconnect_delta(number_of_connected_peers, min_peers),
-            false => disconnect_delta(number_of_connected_peers, max_peers),
+        // Calculate the peer counts to disconnect and connect based on the node type and current
+        // peer counts.
+        let (number_to_disconnect, number_to_connect) = match self.config.is_bootnode() {
+            true => (
+                // Bootnodes disconnect down to the min peer count, this to free up room for
+                // the next crawled peers...
+                number_of_connected_peers.saturating_sub(min_peers),
+                // ...then they connect to peers up to min peers below the max, so as to keep room for
+                // new incoming connections.
+                max_peers.saturating_sub(2 * min_peers),
+            ),
+            false => (
+                // Non-bootnodes disconnect if above the max peer count...
+                number_of_connected_peers.saturating_sub(max_peers),
+                // ...and connect if below the min peer count.
+                min_peers.saturating_sub(number_of_peers),
+            ),
         };
 
         if number_to_disconnect != 0 {
@@ -126,17 +130,18 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
             }
         }
 
-        // Attempt to connect to the default bootnodes of the network.
+        // Attempt to connect to the default bootnodes of the network if the node has no active
+        // connections.
         if number_of_connected_peers == 0 {
             self.connect_to_bootnodes();
         }
 
-        // Attempt to connect to each disconnected peer saved in the peer book.
-        if !self.config.is_bootnode() {
-            self.connect_to_disconnected_peers();
+        if number_to_connect != 0 {
+            self.connect_to_disconnected_peers(number_to_connect);
         }
 
-        if number_of_connected_peers != 0 {
+        // Read the peer counts again, since they may have changed.
+        if self.peer_book.number_of_connected_peers() != 0 {
             // Broadcast a `GetPeers` message to request for more peers.
             self.broadcast_getpeers_requests();
 
@@ -363,30 +368,12 @@ impl<S: Storage + Send + Sync + 'static> Node<S> {
     ///
     /// Broadcasts a connection request to all disconnected peers.
     ///
-    fn connect_to_disconnected_peers(&self) {
+    fn connect_to_disconnected_peers(&self, count: usize) {
         // Local address must be known by now.
         let own_address = self.local_address().unwrap();
 
         // If this node is not a bootnode, attempt to satisfy the minimum number of peer connections.
         let random_peers = {
-            // Fetch the number of connected and connecting peers.
-            let number_of_connected_peers = self.peer_book.number_of_connected_peers() as usize;
-            let number_of_connecting_peers = self.peer_book.number_of_connecting_peers() as usize;
-            let number_of_peers = number_of_connected_peers + number_of_connecting_peers;
-
-            // Check if this node server is below the permitted number of connected peers.
-            let min_peers = self.config.minimum_number_of_connected_peers() as usize;
-            if number_of_peers >= min_peers {
-                return;
-            }
-
-            // Set the number of peers to attempt a connection to.
-            let count = min_peers - number_of_peers;
-
-            if count == 0 {
-                return;
-            }
-
             trace!(
                 "Connecting to {} disconnected peers",
                 cmp::min(count, self.peer_book.disconnected_peers().len())
