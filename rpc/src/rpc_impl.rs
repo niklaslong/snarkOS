@@ -423,6 +423,8 @@ impl<S: Storage + Send + core::marker::Sync + 'static> RpcFunctions for RpcImpl<
     }
 
     fn get_network_graph(&self) -> Result<NetworkGraph, RpcError> {
+        let bootnodes = self.node.config.bootnodes();
+
         let mut vertices = HashSet::new();
         let edges: HashSet<Edge> = self
             .network_topology()?
@@ -431,8 +433,15 @@ impl<S: Storage + Send + core::marker::Sync + 'static> RpcFunctions for RpcImpl<
             .map(|connection| {
                 let (source, target) = connection.into_inner();
 
-                vertices.insert(Vertice { id: source });
-                vertices.insert(Vertice { id: target });
+                // Track the nodes forming the connections.
+                vertices.insert(Vertice {
+                    id: source,
+                    is_bootnode: bootnodes.contains(&source),
+                });
+                vertices.insert(Vertice {
+                    id: target,
+                    is_bootnode: bootnodes.contains(&target),
+                });
 
                 Edge { source, target }
             })
