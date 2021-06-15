@@ -26,7 +26,7 @@ use nalgebra::{DMatrix, DVector, SymmetricEigen};
 use parking_lot::RwLock;
 
 #[derive(Debug, Eq, Copy, Clone)]
-struct Connection((SocketAddr, SocketAddr));
+pub struct Connection((SocketAddr, SocketAddr));
 
 impl PartialEq for Connection {
     fn eq(&self, other: &Self) -> bool {
@@ -55,9 +55,16 @@ impl Hash for Connection {
     }
 }
 
+impl Connection {
+    pub fn into_inner(&self) -> (SocketAddr, SocketAddr) {
+        self.0
+    }
+}
+
 /// Keeps track of crawled peers and their connections.
 #[derive(Default, Debug)]
 pub struct NetworkTopology {
+    // FIXME: func not public field.
     connections: RwLock<HashSet<Connection>>,
 }
 
@@ -91,6 +98,10 @@ impl NetworkTopology {
 
         // Insert new connections.
         self.connections.write().extend(new_connections.iter());
+    }
+
+    pub fn connections(&self) -> HashSet<Connection> {
+        self.connections.read().clone()
     }
 
     pub fn has_connections(&self) -> bool {

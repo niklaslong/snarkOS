@@ -188,8 +188,12 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
         self.sync().is_some()
     }
 
+    pub fn network_topology(&self) -> Option<&NetworkTopology> {
+        self.network_topology.get()
+    }
+
     pub fn expect_network_topology(&self) -> &NetworkTopology {
-        self.network_topology.get().expect("no network topology!")
+        self.network_topology().expect("no network topology!")
     }
 
     pub async fn start_services(&self) {
