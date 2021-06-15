@@ -118,7 +118,7 @@ async fn start_server(config: Config) -> anyhow::Result<()> {
     };
 
     // Enable the sync layer.
-    {
+    if !node.config.is_bootnode() {
         let memory_pool = Mutex::new(MemoryPool::from_storage(&storage)?);
 
         debug!("Loading Aleo parameters...");
