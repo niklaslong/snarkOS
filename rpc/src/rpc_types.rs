@@ -405,7 +405,7 @@ pub struct NetworkGraph {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct Vertice {
-    pub addr: SocketAddr,
+    pub id: SocketAddr,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash)]
