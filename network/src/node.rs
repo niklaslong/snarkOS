@@ -192,10 +192,6 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
         self.network_topology.get()
     }
 
-    pub fn expect_network_topology(&self) -> &NetworkTopology {
-        self.network_topology().expect("no network topology!")
-    }
-
     pub async fn start_services(&self) {
         let node_clone = self.clone();
         let mut receiver = self.inbound.take_receiver();

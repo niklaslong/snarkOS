@@ -30,15 +30,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
-pub enum PeerStatus {
-    Routable,
-    Unroutable,
-    // Peers provided in peer lists are connected to the node providing the list => should be
-    // considered routable by default.
-    // NeverConnected,
-}
-
 #[derive(Debug, Default)]
 pub struct PeerQuality {
     /// The current block height of this peer.
