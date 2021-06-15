@@ -138,13 +138,7 @@ impl<S: Storage> Node<S> {
 impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
     /// Creates a new instance of `Node`.
     pub async fn new(config: Config) -> Result<Self, NetworkError> {
-        // FIXME(nkls): feature-gate.
-        let network_topology = OnceCell::new();
-        network_topology
-            .set(NetworkTopology::default())
-            .expect("network topology was set more than once!");
-
-        Ok(Self(Arc::new(InnerNode {
+        let node = Self(Arc::new(InnerNode {
             id: thread_rng().gen(),
             state: Default::default(),
             local_address: Default::default(),
@@ -153,12 +147,21 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
             outbound: Default::default(),
             peer_book: Default::default(),
             sync: Default::default(),
-            network_topology,
+            network_topology: Default::default(),
             launched: Utc::now(),
             tasks: Default::default(),
             threads: Default::default(),
             shutting_down: Default::default(),
-        })))
+        }));
+
+        // Track the network topology if the node is a bootnode.
+        if node.config.is_bootnode() {
+            node.network_topology
+                .set(NetworkTopology::default())
+                .expect("network topology was set more than once!");
+        }
+
+        Ok(node)
     }
 
     pub fn set_sync(&mut self, sync: Sync<S>) {
