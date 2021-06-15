@@ -14,14 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-// Network crawler:
-// Start a crawler task (similar to the peers task) which updates state. Only one peer would be
-// connected at a time to start and would be queried for peers. It would then select on peer at
-// random to continue the crawl.
-//
-// Q: extend the network protocol to include statistics or node metadata?
-// Q: when to perform centrality computation?
-
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashSet},
@@ -66,22 +58,11 @@ impl Hash for Connection {
 /// Keeps track of crawled peers and their connections.
 #[derive(Default, Debug)]
 pub struct NetworkTopology {
-    pub routable: RwLock<HashSet<SocketAddr>>,
-    pub unroutable: RwLock<HashSet<SocketAddr>>,
-    pub never_crawled: RwLock<HashSet<SocketAddr>>,
     connections: RwLock<HashSet<Connection>>,
 }
 
 impl NetworkTopology {
     pub(crate) fn update(&self, source: SocketAddr, peers: Vec<SocketAddr>) {
-        // Update the peer sets.
-        for peer in &peers {
-            // Insert the peer if we're not alread tracking state for it.
-            if !self.routable.read().contains(&peer) && !self.unroutable.read().contains(&peer) {
-                self.never_crawled.write().insert(*peer);
-            }
-        }
-
         // Update the connections:
         //
         //  - if a connecton exists already, do nothing.
@@ -114,36 +95,6 @@ impl NetworkTopology {
 
     pub fn has_connections(&self) -> bool {
         self.connections.read().len() > 0
-    }
-
-    pub fn routable_count(&self) -> usize {
-        self.routable.read().len()
-    }
-
-    pub fn unroutable_count(&self) -> usize {
-        self.unroutable.read().len()
-    }
-
-    pub fn never_crawled_count(&self) -> usize {
-        self.never_crawled.read().len()
-    }
-
-    pub fn set_routable(&self, addr: SocketAddr) {
-        // Remove from the other sets if present...
-        self.unroutable.write().remove(&addr);
-        self.never_crawled.write().remove(&addr);
-
-        // ...and insert.
-        self.routable.write().insert(addr);
-    }
-
-    pub fn set_unroutable(&self, addr: SocketAddr) {
-        // Remove from the other sets if present...
-        self.never_crawled.write().remove(&addr);
-        self.routable.write().remove(&addr);
-
-        // ...and insert.
-        self.unroutable.write().insert(addr);
     }
 }
 

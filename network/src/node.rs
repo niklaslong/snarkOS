@@ -330,45 +330,6 @@ impl<S: Storage + Send + core::marker::Sync + 'static> Node<S> {
             });
             self.register_task(sync_block_task);
         }
-
-        if self.network_topology.get().is_some() {
-            let node_clone = self.clone();
-
-            //  let crawler_task = tokio::task::spawn(async move {
-            //      loop {
-            //          // Calculate metrics.
-            //          if node_clone.expect_network_topology().has_connections() {
-            //              let now = std::time::Instant::now();
-            //              let metrics = NetworkMetrics::new(node_clone.network_topology.get().unwrap());
-
-            //              // println!("METRICS ({:?}): {:#?}", now.elapsed(), metrics);
-            //              debug!(
-            //                  "METRICS ({:?}) | node count: {} | connection count: {} | degree centrality delta: {}",
-            //                  now.elapsed(),
-            //                  metrics.node_count,
-            //                  metrics.connection_count,
-            //                  metrics.degree_centrality_delta
-            //              );
-
-            //              let network_topology = node_clone.expect_network_topology();
-            //              debug!(
-            //                  "NETWORK TOPOLOGY | routable: {} | unroutable: {} | never crawled: {}",
-            //                  network_topology.routable_count(),
-            //                  network_topology.unroutable_count(),
-            //                  network_topology.never_crawled_count()
-            //              );
-            //          }
-
-            //          //FIXME: add to configuration.
-            //          let count = 10;
-            //          let duration = std::time::Duration::from_secs(30);
-            //          node_clone.crawl_peers(count, duration);
-
-            //          sleep(duration).await;
-            //      }
-            //  });
-            //  self.register_task(crawler_task);
-        }
     }
 
     pub fn shut_down(&self) {
