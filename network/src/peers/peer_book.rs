@@ -287,7 +287,7 @@ impl PeerBook {
             .connected_peers_snapshot()
             .await
             .into_iter()
-            .filter(|x| x.quality.block_height > block_height)
+            .filter(|x| x.block_height > block_height)
             .collect::<Vec<Peer>>();
         let count_total_higher = peers.len();
 

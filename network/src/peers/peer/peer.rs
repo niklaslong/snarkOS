@@ -46,23 +46,48 @@ impl Default for PeerStatus {
     }
 }
 
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct PeerSyncState {
+    /// number of requested sync blocks.
+    pub total_sync_blocks: u32,
+    /// The number of remaining blocks to sync with.
+    pub remaining_sync_blocks: u32,
+}
+
+impl PeerSyncState {
+    fn reset(&mut self) {
+        self.remaining_sync_blocks = 0;
+        self.total_sync_blocks = 0;
+    }
+}
+
 /// A data structure containing information about a peer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Peer {
+    /// The peer's listening address.
     pub address: SocketAddr,
-    #[serde(skip)]
-    pub status: PeerStatus,
-    pub quality: PeerQuality,
-    pub is_bootnode: bool,
-    #[serde(skip)]
-    pub queued_inbound_message_count: Arc<AtomicUsize>,
-    #[serde(skip)]
-    pub queued_outbound_message_count: Arc<AtomicUsize>,
     /// Whether this peer is routable or not.
     ///
     /// `None` indicates the node has never attempted a connection with this peer.
     pub is_routable: Option<bool>,
+    /// Whether this peer is included in the node's bootnode list.
+    pub is_bootnode: bool,
+    /// The peer's connection status to the node.
+    #[serde(skip)]
+    pub status: PeerStatus,
+    /// The peer's network quality metrics.
+    pub quality: PeerQuality,
 
+    /// The peer's advertised block height.
+    pub block_height: u32,
+    /// The peer's chain state.
+    pub sync_state: PeerSyncState,
+
+    /// The node's internal outbound queue state for this peer.
+    #[serde(skip)]
+    pub queued_inbound_message_count: Arc<AtomicUsize>,
+    #[serde(skip)]
+    pub queued_outbound_message_count: Arc<AtomicUsize>,
     #[serde(skip)]
     pub block_received_cache: Cache<{ crate::PEER_BLOCK_CACHE_SIZE }>,
 }
@@ -74,15 +99,18 @@ impl Peer {
     pub fn new(address: SocketAddr, is_bootnode: bool) -> Self {
         Self {
             address,
-            status: PeerStatus::Disconnected,
-            quality: Default::default(),
-            is_bootnode,
-            queued_inbound_message_count: Default::default(),
-            queued_outbound_message_count: Default::default(),
-
             // Set to `None` since peer creation only ever happens before a connection to the peer,
             // therefore we don't know if its listener is routable or not.
             is_routable: None,
+            is_bootnode,
+            status: PeerStatus::Disconnected,
+            quality: Default::default(),
+
+            block_height: Default::default(),
+            sync_state: Default::default(),
+
+            queued_inbound_message_count: Default::default(),
+            queued_outbound_message_count: Default::default(),
             block_received_cache: Cache::default(),
         }
     }
@@ -214,6 +242,7 @@ impl Peer {
 
     pub(super) fn set_disconnected(&mut self) {
         self.quality.disconnected();
+        self.sync_state.reset();
         self.status = PeerStatus::Disconnected;
     }
 

@@ -22,7 +22,6 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PeerQuality {
-    pub block_height: u32,
     pub last_seen: Option<DateTime<Utc>>,
     #[serde(skip)]
     pub expecting_pong: bool,
@@ -32,10 +31,6 @@ pub struct PeerQuality {
     pub rtt_ms: u64,
     /// The number of failures associated with the peer; grounds for dismissal.
     pub failures: Vec<DateTime<Utc>>,
-    /// number of requested sync blocks
-    pub total_sync_blocks: u32,
-    /// The number of remaining blocks to sync with.
-    pub remaining_sync_blocks: u32,
     pub num_messages_received: u64,
     pub first_seen: Option<DateTime<Utc>>,
     pub last_connected: Option<DateTime<Utc>>,
@@ -77,8 +72,6 @@ impl PeerQuality {
         self.last_disconnected = Some(disconnect_timestamp);
         self.disconnected_count += 1;
         self.expecting_pong = false;
-        self.remaining_sync_blocks = 0;
-        self.total_sync_blocks = 0;
 
         if let Some(last_connected) = self.last_connected {
             if let Ok(elapsed) = disconnect_timestamp.signed_duration_since(last_connected).to_std() {

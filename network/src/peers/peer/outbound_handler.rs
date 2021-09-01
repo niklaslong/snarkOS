@@ -179,37 +179,37 @@ impl Peer {
                 }
             }
             PeerAction::CancelSync => {
-                if self.quality.remaining_sync_blocks > self.quality.total_sync_blocks / 2 {
+                if self.sync_state.remaining_sync_blocks > self.sync_state.total_sync_blocks / 2 {
                     warn!(
                         "Was expecting {} more sync blocks from {}",
-                        self.quality.remaining_sync_blocks, self.address,
+                        self.sync_state.remaining_sync_blocks, self.address,
                     );
-                    self.quality.remaining_sync_blocks = 0;
-                    self.quality.total_sync_blocks = 0;
+                    self.sync_state.remaining_sync_blocks = 0;
+                    self.sync_state.total_sync_blocks = 0;
                     self.fail();
-                } else if self.quality.remaining_sync_blocks > 0 {
+                } else if self.sync_state.remaining_sync_blocks > 0 {
                     trace!(
                         "Was expecting {} more sync blocks from {}",
-                        self.quality.remaining_sync_blocks,
+                        self.sync_state.remaining_sync_blocks,
                         self.address,
                     );
-                    self.quality.remaining_sync_blocks = 0;
-                    self.quality.total_sync_blocks = 0;
+                    self.sync_state.remaining_sync_blocks = 0;
+                    self.sync_state.total_sync_blocks = 0;
                 }
                 Ok(PeerResponse::None)
                 //todo: should we notify the peer we are no longer expecting anything from them?
             }
             PeerAction::GotSyncBlock => {
-                if self.quality.remaining_sync_blocks > 0 {
-                    self.quality.remaining_sync_blocks -= 1;
+                if self.sync_state.remaining_sync_blocks > 0 {
+                    self.sync_state.remaining_sync_blocks -= 1;
                 } else {
                     warn!("received unexpected or late sync block from {}", self.address);
                 }
                 Ok(PeerResponse::None)
             }
             PeerAction::ExpectingSyncBlocks(amount) => {
-                self.quality.remaining_sync_blocks = amount;
-                self.quality.total_sync_blocks = amount;
+                self.sync_state.remaining_sync_blocks = amount;
+                self.sync_state.total_sync_blocks = amount;
                 Ok(PeerResponse::None)
             }
             PeerAction::SoftFail => {

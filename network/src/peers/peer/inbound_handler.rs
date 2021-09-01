@@ -207,7 +207,7 @@ impl Peer {
             Payload::Ping(block_height) => {
                 network.write_payload(&Payload::Pong).await?;
                 debug!("Sent a '{}' message to {}", Payload::Pong, self.address);
-                self.quality.block_height = block_height;
+                self.block_height = block_height;
                 metrics::increment_counter!(PINGS);
 
                 // Pongs are sent without going through the outbound handler,
