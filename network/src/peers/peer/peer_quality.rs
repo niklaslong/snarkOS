@@ -22,22 +22,33 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PeerQuality {
+    /// The timestamp of the first connection with the peer.
+    pub first_seen: Option<DateTime<Utc>>,
+    /// The timestmap of the last change in connection state or message received from the peer.
     pub last_seen: Option<DateTime<Utc>>,
-    #[serde(skip)]
-    pub expecting_pong: bool,
-    #[serde(skip)]
-    pub last_ping_sent: Option<Instant>,
+    /// The timestamp of the last connection with the peer.
+    pub last_connected: Option<DateTime<Utc>>,
+    /// The timestamp of the last disconnect with the peer.
+    pub last_disconnected: Option<DateTime<Utc>>,
+    /// The number of times we have connected to the peer.
+    pub connected_count: u64,
+    /// The number of times we have disconnected from the peer.
+    pub disconnected_count: u64,
+
     /// The time it took to send a `Ping` to the peer and for it to respond with a `Pong`.
     pub rtt_ms: u64,
+    /// The timestamp of the last sent `Ping` to the peer.
+    #[serde(skip)]
+    pub last_ping_sent: Option<Instant>,
+    /// Set to `true` if the node has sent a `Ping` to the peer and hasn't yet received a `Pong` in
+    /// response.
+    #[serde(skip)]
+    pub expecting_pong: bool,
+
     /// The number of failures associated with the peer; grounds for dismissal.
     pub failures: Vec<DateTime<Utc>>,
+    /// The number of messages received from the peer.
     pub num_messages_received: u64,
-    pub first_seen: Option<DateTime<Utc>>,
-    pub last_connected: Option<DateTime<Utc>>,
-    pub last_disconnected: Option<DateTime<Utc>>,
-    /// The number of times we have connected to this peer.
-    pub connected_count: u64,
-    pub disconnected_count: u64,
 }
 
 impl PeerQuality {
