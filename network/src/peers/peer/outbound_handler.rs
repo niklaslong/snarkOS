@@ -133,8 +133,7 @@ impl Peer {
             }
             PeerAction::Send(message, time_received) => {
                 if matches!(message, Payload::Ping(_)) {
-                    self.quality.expecting_pong = true;
-                    self.quality.last_ping_sent = Some(Instant::now());
+                    self.start_rtt_measurement();
                 }
 
                 self.queued_outbound_message_count.fetch_sub(1, Ordering::SeqCst);

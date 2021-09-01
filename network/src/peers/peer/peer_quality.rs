@@ -62,7 +62,7 @@ impl PeerQuality {
         }
     }
 
-    pub fn see(&mut self) {
+    pub fn register_seen(&mut self) {
         let now = chrono::Utc::now();
         if self.first_seen.is_none() {
             self.first_seen = Some(now);
@@ -70,16 +70,16 @@ impl PeerQuality {
         self.last_seen = Some(now);
     }
 
-    pub fn connected(&mut self) {
-        self.see();
+    pub fn register_connected(&mut self) {
+        self.register_seen();
         self.last_connected = Some(chrono::Utc::now());
         self.connected_count += 1;
     }
 
-    pub fn disconnected(&mut self) {
+    pub fn register_disconnected(&mut self) {
         let disconnect_timestamp = chrono::Utc::now();
 
-        self.see();
+        self.register_seen();
         self.last_disconnected = Some(disconnect_timestamp);
         self.disconnected_count += 1;
         self.expecting_pong = false;

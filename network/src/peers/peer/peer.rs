@@ -230,22 +230,51 @@ impl Peer {
     }
 
     pub(super) fn set_connected(&mut self) {
-        self.quality.connected();
+        self.quality.register_connected();
         self.status = PeerStatus::Connected;
     }
 
     pub(super) fn set_connecting(&mut self) {
-        self.quality.see();
+        self.quality.register_seen();
         self.status = PeerStatus::Connecting;
     }
 
     pub(super) fn set_disconnected(&mut self) {
-        self.quality.disconnected();
+        self.quality.register_disconnected();
         self.sync_state.reset();
         self.status = PeerStatus::Disconnected;
     }
 
     pub(super) fn set_routable(&mut self, is_routable: bool) {
         self.is_routable = Some(is_routable)
+    }
+
+    pub fn register_received_message(&mut self) {
+        self.quality.register_seen();
+        self.quality.num_messages_received += 1;
+    }
+
+    pub fn start_rtt_measurement(&mut self) {
+        self.quality.expecting_pong = true;
+        self.quality.last_ping_sent = Some(Instant::now());
+    }
+
+    pub fn stop_rtt_measurement(&mut self) {
+        if !self.quality.expecting_pong {
+            self.fail();
+
+            return;
+        }
+
+        let rtt = self
+            .quality
+            .last_ping_sent
+            .map(|x| x.elapsed().as_millis() as u64)
+            .unwrap_or(u64::MAX);
+
+        trace!("RTT for {} is {}ms", self.address, rtt);
+
+        self.quality.expecting_pong = false;
+        self.quality.rtt_ms = rtt;
     }
 }
