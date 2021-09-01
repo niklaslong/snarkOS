@@ -27,9 +27,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use snarkos_metrics::{self as metrics, queues::*};
 
-use crate::{NetworkError, Payload, Peer};
-
-use super::network::PeerIOHandle;
+use crate::{transport::PeerIOHandle, NetworkError, Payload, Peer};
 
 pub(super) enum PeerAction {
     Disconnect,

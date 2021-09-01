@@ -24,9 +24,9 @@ use tokio::{net::TcpStream, sync::mpsc};
 
 use snarkos_metrics::{self as metrics, connections::*};
 
-use crate::{NetworkError, Node, Peer, PeerEvent, PeerEventData, PeerHandle, Version};
+use crate::{transport::PeerIOHandle, NetworkError, Node, Peer, PeerEvent, PeerEventData, PeerHandle, Version};
 
-use super::{network::PeerIOHandle, PeerAction};
+use super::PeerAction;
 
 const CONNECTION_TIMEOUT_SECS: u64 = 3;
 

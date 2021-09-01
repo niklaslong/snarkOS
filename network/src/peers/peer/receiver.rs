@@ -20,9 +20,19 @@ use tokio::{net::TcpStream, sync::mpsc};
 
 use snarkos_metrics::{self as metrics, connections::*};
 
-use crate::{NetworkError, Node, Peer, PeerEvent, PeerEventData, PeerHandle, PeerStatus, Version};
+use crate::{
+    transport::PeerIOHandle,
+    NetworkError,
+    Node,
+    Peer,
+    PeerEvent,
+    PeerEventData,
+    PeerHandle,
+    PeerStatus,
+    Version,
+};
 
-use super::{network::PeerIOHandle, PeerAction};
+use super::PeerAction;
 
 impl Peer {
     pub fn receive(remote_address: SocketAddr, node: Node, stream: TcpStream, event_target: mpsc::Sender<PeerEvent>) {

@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use anyhow::*;
 use chrono::Utc;
 use futures::{select, FutureExt};
 use serde::{Deserialize, Serialize};
@@ -29,9 +28,9 @@ use std::{
 use tokio::sync::mpsc;
 
 use super::PeerQuality;
-use crate::{message::Payload, Cache, NetworkError, Node};
+use crate::{message::Payload, transport::PeerIOHandle, Cache, NetworkError, Node};
 
-use super::{network::*, outbound_handler::*};
+use super::outbound_handler::*;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PeerStatus {

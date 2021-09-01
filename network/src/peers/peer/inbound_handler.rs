@@ -22,9 +22,7 @@ use snarkos_metrics::{
 };
 use tokio::task;
 
-use crate::{KnownNetworkMessage, NetworkError, Node, Payload, Peer, State};
-
-use super::network::PeerIOHandle;
+use crate::{transport::PeerIOHandle, KnownNetworkMessage, NetworkError, Node, Payload, Peer, State};
 
 use std::time::Instant;
 

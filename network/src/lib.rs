@@ -35,6 +35,7 @@ pub use node::*;
 pub use peers::*;
 pub use snarkos_metrics::stats::*;
 pub use sync::*;
+pub use transport::*;
 
 pub mod config;
 mod drop_join;
@@ -44,6 +45,7 @@ pub mod message;
 pub mod node;
 pub mod peers;
 pub mod sync;
+pub mod transport;
 
 pub mod topology;
 pub use topology::*;

@@ -25,7 +25,7 @@ use tokio::{
 use snarkos_metrics::{self as metrics, handshakes::*};
 
 use crate::{
-    peer::{cipher::Cipher, network::PeerIOHandle},
+    transport::{Cipher, PeerIOHandle},
     NetworkError,
     Peer,
     Version,
