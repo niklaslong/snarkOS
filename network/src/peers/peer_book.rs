@@ -30,7 +30,7 @@ use tokio::{net::TcpStream, sync::mpsc};
 
 use snarkos_metrics::{self as metrics, connections::*};
 
-use crate::{NetworkError, Node, Payload, Peer, PeerEvent, PeerEventData, PeerHandle, PeerStatus};
+use crate::{NetworkError, Node, Payload, Peer, PeerHandle, PeerStatus};
 
 ///
 /// A data structure for storing the history of all peers with this node server.
@@ -48,6 +48,17 @@ struct PeerBookRef {
     disconnected_peers: MpmcMap<SocketAddr, Peer>,
     connected_peers: MpmcMap<SocketAddr, PeerHandle>,
     pending_connections: Arc<AtomicU32>,
+}
+
+pub enum PeerEventData {
+    Connected(PeerHandle),
+    Disconnect(Peer, PeerStatus),
+    FailHandshake,
+}
+
+pub struct PeerEvent {
+    pub address: SocketAddr,
+    pub data: PeerEventData,
 }
 
 impl PeerBookRef {

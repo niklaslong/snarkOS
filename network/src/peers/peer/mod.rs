@@ -18,7 +18,6 @@ mod connector;
 mod handshake;
 mod inbound_handler;
 mod outbound_handler;
-mod peer_events;
 mod receiver;
 
 pub mod peer;
@@ -26,5 +25,4 @@ pub mod peer_quality;
 
 pub use outbound_handler::*;
 pub use peer::*;
-pub use peer_events::*;
 pub use peer_quality::*;
