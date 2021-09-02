@@ -81,14 +81,21 @@ pub struct Peer {
     pub block_height: u32,
     /// The peer's chain state.
     pub sync_state: PeerSyncState,
-
-    /// The node's internal outbound queue state for this peer.
-    #[serde(skip)]
-    pub queued_inbound_message_count: Arc<AtomicUsize>,
-    #[serde(skip)]
-    pub queued_outbound_message_count: Arc<AtomicUsize>,
+    /// The peer's inbound-populated and outbound-checked cache for block repropagation.
+    ///
+    /// The expected flow is:
+    ///
+    /// 1. Node A receives a block from Peers B, C, D, E, F.
+    /// 2. Node A repropagates the block to Peers G, H, I, J, who have not sent Node A the block.
     #[serde(skip)]
     pub block_received_cache: Cache<{ crate::PEER_BLOCK_CACHE_SIZE }>,
+
+    /// The node's internal inbound queue state for this peer.
+    #[serde(skip)]
+    pub queued_inbound_message_count: Arc<AtomicUsize>,
+    /// The node's internal outbound queue state for this peer.
+    #[serde(skip)]
+    pub queued_outbound_message_count: Arc<AtomicUsize>,
 }
 
 const FAILURE_EXPIRY_TIME: Duration = Duration::from_secs(15 * 60);
