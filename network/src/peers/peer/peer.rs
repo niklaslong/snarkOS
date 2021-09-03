@@ -55,8 +55,12 @@ pub struct PeerSyncState {
 
 impl PeerSyncState {
     fn reset(&mut self) {
-        self.remaining_sync_blocks = 0;
-        self.total_sync_blocks = 0;
+        self.set(0);
+    }
+
+    fn set(&mut self, amount: u32) {
+        self.remaining_sync_blocks = amount;
+        self.total_sync_blocks = amount;
     }
 }
 
@@ -283,5 +287,39 @@ impl Peer {
 
         self.quality.expecting_pong = false;
         self.quality.rtt_ms = rtt;
+    }
+
+    // TODO: decouple sync state from peer?
+
+    pub fn register_received_sync_block(&mut self) {
+        if self.sync_state.remaining_sync_blocks > 0 {
+            self.sync_state.remaining_sync_blocks -= 1;
+        } else {
+            warn!("received unexpected or late sync block from {}", self.address);
+        }
+    }
+
+    pub fn set_sync_expectations(&mut self, amount: u32) {
+        self.sync_state.set(amount);
+    }
+
+    pub fn cancel_sync(&mut self) {
+        if self.sync_state.remaining_sync_blocks > self.sync_state.total_sync_blocks / 2 {
+            warn!(
+                "Was expecting {} more sync blocks from {}",
+                self.sync_state.remaining_sync_blocks, self.address,
+            );
+
+            self.sync_state.reset();
+            self.fail();
+        } else if self.sync_state.remaining_sync_blocks > 0 {
+            trace!(
+                "Was expecting {} more sync blocks from {}",
+                self.sync_state.remaining_sync_blocks,
+                self.address,
+            );
+
+            self.sync_state.reset();
+        }
     }
 }

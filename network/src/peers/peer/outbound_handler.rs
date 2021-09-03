@@ -176,37 +176,19 @@ impl Peer {
                 }
             }
             PeerAction::CancelSync => {
-                if self.sync_state.remaining_sync_blocks > self.sync_state.total_sync_blocks / 2 {
-                    warn!(
-                        "Was expecting {} more sync blocks from {}",
-                        self.sync_state.remaining_sync_blocks, self.address,
-                    );
+                self.cancel_sync();
 
-                    self.sync_state.reset();
-                    self.fail();
-                } else if self.sync_state.remaining_sync_blocks > 0 {
-                    trace!(
-                        "Was expecting {} more sync blocks from {}",
-                        self.sync_state.remaining_sync_blocks,
-                        self.address,
-                    );
-
-                    self.sync_state.reset();
-                }
                 Ok(PeerResponse::None)
                 //todo: should we notify the peer we are no longer expecting anything from them?
             }
             PeerAction::GotSyncBlock => {
-                if self.sync_state.remaining_sync_blocks > 0 {
-                    self.sync_state.remaining_sync_blocks -= 1;
-                } else {
-                    warn!("received unexpected or late sync block from {}", self.address);
-                }
+                self.register_received_sync_block();
+
                 Ok(PeerResponse::None)
             }
             PeerAction::ExpectingSyncBlocks(amount) => {
-                self.sync_state.remaining_sync_blocks = amount;
-                self.sync_state.total_sync_blocks = amount;
+                self.set_sync_expectations(amount);
+
                 Ok(PeerResponse::None)
             }
             PeerAction::SoftFail => {
