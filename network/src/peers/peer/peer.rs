@@ -260,17 +260,17 @@ impl Peer {
         self.is_routable = Some(is_routable)
     }
 
-    pub fn register_received_message(&mut self) {
+    pub(super) fn register_received_message(&mut self) {
         self.quality.register_seen();
         self.quality.num_messages_received += 1;
     }
 
-    pub fn start_rtt_measurement(&mut self) {
+    pub(super) fn start_rtt_measurement(&mut self) {
         self.quality.expecting_pong = true;
         self.quality.last_ping_sent = Some(Instant::now());
     }
 
-    pub fn stop_rtt_measurement(&mut self) {
+    pub(super) fn stop_rtt_measurement(&mut self) {
         if !self.quality.expecting_pong {
             self.fail();
 
@@ -291,7 +291,7 @@ impl Peer {
 
     // TODO: decouple sync state from peer?
 
-    pub fn register_received_sync_block(&mut self) {
+    pub(super) fn register_received_sync_block(&mut self) {
         if self.sync_state.remaining_sync_blocks > 0 {
             self.sync_state.remaining_sync_blocks -= 1;
         } else {
@@ -299,11 +299,11 @@ impl Peer {
         }
     }
 
-    pub fn set_sync_expectations(&mut self, amount: u32) {
+    pub(super) fn set_sync_expectations(&mut self, amount: u32) {
         self.sync_state.set(amount);
     }
 
-    pub fn cancel_sync(&mut self) {
+    pub(super) fn cancel_sync(&mut self) {
         if self.sync_state.remaining_sync_blocks > self.sync_state.total_sync_blocks / 2 {
             warn!(
                 "Was expecting {} more sync blocks from {}",
