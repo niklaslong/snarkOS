@@ -181,8 +181,8 @@ impl Peer {
                         "Was expecting {} more sync blocks from {}",
                         self.sync_state.remaining_sync_blocks, self.address,
                     );
-                    self.sync_state.remaining_sync_blocks = 0;
-                    self.sync_state.total_sync_blocks = 0;
+
+                    self.sync_state.reset();
                     self.fail();
                 } else if self.sync_state.remaining_sync_blocks > 0 {
                     trace!(
@@ -190,8 +190,8 @@ impl Peer {
                         self.sync_state.remaining_sync_blocks,
                         self.address,
                     );
-                    self.sync_state.remaining_sync_blocks = 0;
-                    self.sync_state.total_sync_blocks = 0;
+
+                    self.sync_state.reset();
                 }
                 Ok(PeerResponse::None)
                 //todo: should we notify the peer we are no longer expecting anything from them?
