@@ -37,23 +37,7 @@ impl Node {
 }
 
 impl Node {
-    ///
-    /// Broadcasts updates with connected peers and maintains a permitted number of connected peers.
-    ///
-    pub(crate) async fn update_peers(&self) {
-        // Fetch the number of connected and connecting peers.
-        let active_peer_count = self.peer_book.get_active_peer_count();
-        info!(
-            "Connected to {} peer{}",
-            active_peer_count,
-            if active_peer_count == 1 { "" } else { "s" }
-        );
-
-        // Drop peers whose RTT is too high or have too many failures.
-        self.peer_book.judge_peers().await;
-        // give us 100ms to close some negatively judge_badd connections (probably less needed, but we have time)
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
+    fn connection_needs(&self) -> (u32, u32) {
         // Fetch active peer count after high RTTs disconnects.
         let active_peer_count = self.peer_book.get_active_peer_count();
         let min_peers = self.config.minimum_number_of_connected_peers() as u32;
@@ -61,7 +45,7 @@ impl Node {
 
         // Calculate the peer counts to disconnect and connect based on the node type and current
         // peer counts.
-        let (number_to_disconnect, number_to_connect) = if self.is_of_type(NodeType::Crawler) {
+        if self.is_of_type(NodeType::Crawler) {
             // Crawlers disconnect down to the min peer count, this to free up room for
             // the next crawled peers...
             let number_to_disconnect = active_peer_count.saturating_sub(min_peers);
@@ -92,27 +76,51 @@ impl Node {
                 // ...and connect if below the min peer count.
                 min_peers.saturating_sub(active_peer_count),
             )
-        };
-
-        if number_to_disconnect != 0 {
-            let mut current_peers = self.peer_book.connected_peers_snapshot().await;
-
-            if !self.is_of_type(NodeType::Client) {
-                // Beacons, sync providers and crawlers will disconnect from their oldest peers...
-                current_peers.sort_unstable_by_key(|peer| cmp::Reverse(peer.quality.last_connected));
-            } else {
-                // ...while regular nodes from the ones most recently connected to.
-                current_peers.sort_unstable_by_key(|peer| peer.quality.last_connected);
-            }
-
-            for _ in 0..number_to_disconnect {
-                if let Some(peer) = current_peers.pop() {
-                    self.disconnect_from_peer(peer.address).await;
-                } else {
-                    break;
-                }
-            }
         }
+    }
+
+    async fn disconnect_from_peers(&self, number_to_disconnect: u32) {
+        if number_to_disconnect == 0 {
+            return;
+        }
+
+        let mut current_peers = self.peer_book.connected_peers_snapshot().await;
+
+        // Regular nodes disconnect from their most recent peers...
+        current_peers.sort_unstable_by_key(|peer| peer.quality.last_connected);
+
+        // ...while beacons, sync providers and crawlers will disconnect from their oldest.
+        if !self.is_of_type(NodeType::Client) {
+            current_peers.reverse();
+        }
+
+        for peer in current_peers.into_iter().take(number_to_disconnect as usize) {
+            self.disconnect_from_peer(peer.address).await;
+        }
+    }
+
+    ///
+    /// Broadcasts updates with connected peers and maintains a permitted number of connected peers.
+    ///
+    pub(crate) async fn update_peers(&self) {
+        // Fetch the number of connected and connecting peers.
+        let active_peer_count = self.peer_book.get_active_peer_count();
+        info!(
+            "Connected to {} peer{}",
+            active_peer_count,
+            if active_peer_count == 1 { "" } else { "s" }
+        );
+
+        // Drop peers whose RTT is too high or have too many failures.
+        self.peer_book.judge_peers().await;
+        // give us 100ms to close some negatively judge_badd connections (probably less needed, but we have time)
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Calculate the peer counts to disconnect and connect based on the node type and current
+        // peer counts.
+        let (number_to_disconnect, number_to_connect) = self.connection_needs();
+
+        self.disconnect_from_peers(number_to_disconnect).await;
 
         // Attempt to connect to a few random beacons if the node has no active
         // connections or if it's a beacon itself.
