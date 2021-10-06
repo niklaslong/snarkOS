@@ -43,39 +43,41 @@ impl Node {
         let min_peers = self.config.minimum_number_of_connected_peers() as u32;
         let max_peers = self.config.maximum_number_of_connected_peers() as u32;
 
-        // Calculate the peer counts to disconnect and connect based on the node type and current
-        // peer counts.
-        if self.is_of_type(NodeType::Crawler) {
-            // Crawlers disconnect down to the min peer count, this to free up room for
-            // the next crawled peers...
-            let number_to_disconnect = active_peer_count.saturating_sub(min_peers);
-            // ...then they connect to disconnected peers leaving 20% of their capacity open to
-            // potential incoming connections.
-            const CRAWLING_CAPACITY_PERCENTAGE: f64 = 0.8;
-            let crawling_capacity = (CRAWLING_CAPACITY_PERCENTAGE * max_peers as f64).floor() as u32;
-            let number_to_connect = crawling_capacity.saturating_sub(active_peer_count - number_to_disconnect);
+        match self.config.node_type {
+            NodeType::Crawler => {
+                // Crawlers disconnect down to the min peer count, this to free up room for
+                // the next crawled peers...
+                let number_to_disconnect = active_peer_count.saturating_sub(min_peers);
+                // ...then they connect to disconnected peers leaving 20% of their capacity open to
+                // potential incoming connections.
+                const CRAWLING_CAPACITY_PERCENTAGE: f64 = 0.8;
+                let crawling_capacity = (CRAWLING_CAPACITY_PERCENTAGE * max_peers as f64).floor() as u32;
+                let number_to_connect = crawling_capacity.saturating_sub(active_peer_count - number_to_disconnect);
 
-            (number_to_disconnect, number_to_connect)
-        } else if self.is_of_type(NodeType::SyncProvider) || self.is_of_type(NodeType::Beacon) {
-            // Beacons and sync providers disconnect down to 80% of their max to leave capacity open for new
-            // connections.
-            const CAPACITY_PERCENTAGE: f64 = 0.8;
-            let capacity = (CAPACITY_PERCENTAGE * max_peers as f64).floor() as u32;
+                (number_to_disconnect, number_to_connect)
+            }
 
-            (
+            NodeType::SyncProvider | NodeType::Beacon => {
                 // Beacons and sync providers disconnect down to 80% of their max to leave capacity open for new
                 // connections...
-                active_peer_count.saturating_sub(capacity),
-                // ...and don't connect to any peers on their own once above `0` peers.
-                0,
-            )
-        } else {
-            (
-                // Other nodes disconnect if above the max peer count...
-                active_peer_count.saturating_sub(max_peers),
-                // ...and connect if below the min peer count.
-                min_peers.saturating_sub(active_peer_count),
-            )
+                const CAPACITY_PERCENTAGE: f64 = 0.8;
+                let capacity = (CAPACITY_PERCENTAGE * max_peers as f64).floor() as u32;
+
+                (
+                    active_peer_count.saturating_sub(capacity),
+                    // ...and don't connect to any peers on their own once above `0` peers.
+                    0,
+                )
+            }
+
+            _ => {
+                (
+                    // Other nodes disconnect if above the max peer count...
+                    active_peer_count.saturating_sub(max_peers),
+                    // ...and connect if below the min peer count.
+                    min_peers.saturating_sub(active_peer_count),
+                )
+            }
         }
     }
 
