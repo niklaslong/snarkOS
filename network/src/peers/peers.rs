@@ -79,8 +79,8 @@ impl Node {
         }
     }
 
-    async fn disconnect_from_peers(&self, number_to_disconnect: u32) {
-        if number_to_disconnect == 0 {
+    async fn disconnect_from_peers(&self, count: usize) {
+        if count == 0 {
             return;
         }
 
@@ -94,7 +94,7 @@ impl Node {
             current_peers.reverse();
         }
 
-        for peer in current_peers.into_iter().take(number_to_disconnect as usize) {
+        for peer in current_peers.into_iter().take(count) {
             self.disconnect_from_peer(peer.address).await;
         }
     }
@@ -120,7 +120,8 @@ impl Node {
         // peer counts.
         let (number_to_disconnect, number_to_connect) = self.connection_needs();
 
-        self.disconnect_from_peers(number_to_disconnect).await;
+        // Disconnect from the required amount of peers. No-op if count is `0`.
+        self.disconnect_from_peers(number_to_disconnect as usize).await;
 
         // Attempt to connect to a few random beacons if the node has no active
         // connections or if it's a beacon itself.
@@ -138,9 +139,8 @@ impl Node {
             self.connect_to_addresses(&random_beacons).await;
         }
 
-        if number_to_connect != 0 {
-            self.connect_to_disconnected_peers(number_to_connect as usize).await;
-        }
+        // Connect to the required amount of peers. No-op if count is `0`.
+        self.connect_to_disconnected_peers(number_to_connect as usize).await;
 
         // Only broadcast requests if any peers are connected.
         if self.peer_book.get_connected_peer_count() != 0 {
@@ -230,6 +230,10 @@ impl Node {
     /// Broadcasts a connection request to all disconnected peers.
     ///
     async fn connect_to_disconnected_peers(&self, count: usize) {
+        if count == 0 {
+            return;
+        }
+
         // Local address must be known by now.
         let own_address = self.expect_local_addr();
 
@@ -318,8 +322,6 @@ impl Node {
 
     /// Broadcasts a `Ping` message to all connected peers.
     async fn broadcast_pings(&self) -> Result<()> {
-        trace!("Broadcasting `Ping` messages");
-
         // Consider peering tests that don't use the sync layer.
         let current_block_height = if self.sync().is_some() {
             self.storage.canon().await?.block_height as u32
@@ -327,7 +329,10 @@ impl Node {
             0
         };
 
+        trace!("Broadcasting `Ping` messages");
+
         self.peer_book.broadcast(Payload::Ping(current_block_height)).await;
+
         Ok(())
     }
 
