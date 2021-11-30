@@ -157,8 +157,7 @@ impl<N: Network, E: Environment> Message<N, E> {
             Self::PeerRequest => Ok(vec![]),
             Self::PeerResponse(peer_ips) => Ok(bincode::serialize(peer_ips)?),
             Self::Ping(version, node_type, status, block_height, block_hash) => {
-                let first_part = bincode::serialize(&(version, node_type, status, block_height))?;
-
+                // let first_part = bincode::serialize(&(version, node_type, status, block_height))?;
                 Ok([
                     version.to_le_bytes().to_vec(),
                     bincode::serialize(node_type)?,
