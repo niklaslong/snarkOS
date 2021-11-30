@@ -218,8 +218,8 @@ impl<N: Network, E: Environment> Message<N, E> {
             },
             6 => Self::PeerResponse(bincode::deserialize(data)?),
             7 => {
-                let (version, node_type, status, block_height) = bincode::deserialize(&data[0..38])?;
-                Self::Ping(version, node_type, status, block_height, Data::Buffer(data[38..].to_vec()))
+                let (version, node_type, status, block_height) = bincode::deserialize(&data[0..10])?;
+                Self::Ping(version, node_type, status, block_height, Data::Buffer(data[10..].to_vec()))
             }
             8 => {
                 let is_fork = match data[0] {
