@@ -592,6 +592,8 @@ impl<N: Network, E: Environment> Peers<N, E> {
                         let serialized_header = bincode::serialize(&block_header).expect("Block header serialization is bugged");
                         let _ = std::mem::replace(data, Data::Buffer(serialized_header));
 
+                        dbg!("DID A THING");
+
                         true
                     }
                     Message::UnconfirmedBlock(_, _, ref mut data) => {

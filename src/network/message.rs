@@ -158,14 +158,19 @@ impl<N: Network, E: Environment> Message<N, E> {
             Self::PeerResponse(peer_ips) => Ok(bincode::serialize(peer_ips)?),
             Self::Ping(version, node_type, status, block_height, block_hash) => {
                 // let first_part = bincode::serialize(&(version, node_type, status, block_height))?;
-                Ok([
+                dbg!("ENCODING DATA");
+                let res = [
                     version.to_le_bytes().to_vec(),
                     bincode::serialize(node_type)?,
                     bincode::serialize(status)?,
                     block_height.to_le_bytes().to_vec(),
                     block_hash.serialize_blocking()?,
                 ]
-                .concat())
+                .concat();
+
+                dbg!(res.len());
+
+                Ok(res)
             }
             Self::Pong(is_fork, block_locators) => {
                 let serialized_is_fork: u8 = match is_fork {
