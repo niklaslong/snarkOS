@@ -158,7 +158,6 @@ impl<N: Network, E: Environment> Message<N, E> {
             Self::PeerResponse(peer_ips) => Ok(bincode::serialize(peer_ips)?),
             Self::Ping(version, node_type, status, block_height, block_hash) => {
                 // let first_part = bincode::serialize(&(version, node_type, status, block_height))?;
-                dbg!("ENCODING DATA");
                 let res = [
                     version.to_le_bytes().to_vec(),
                     bincode::serialize(node_type)?,
@@ -167,8 +166,6 @@ impl<N: Network, E: Environment> Message<N, E> {
                     block_hash.serialize_blocking()?,
                 ]
                 .concat();
-
-                dbg!(res.len());
 
                 Ok(res)
             }
@@ -232,13 +229,21 @@ impl<N: Network, E: Environment> Message<N, E> {
             7 => {
                 // let (version, node_type, status, block_height) = bincode::deserialize(&data[0..10])?;
                 // Self::Ping(version, node_type, status, block_height, Data::Buffer(data[10..].to_vec()))
-                Self::Ping(
-                    bincode::deserialize(&data[0..4])?,
-                    bincode::deserialize(&data[4..5])?,
-                    bincode::deserialize(&data[5..6])?,
-                    bincode::deserialize(&data[6..10])?,
-                    Data::Buffer(data[10..].to_vec()),
-                )
+
+                //  let res = Self::Ping(
+                //      bincode::deserialize(&data[0..4])?,
+                //      bincode::deserialize(&data[4..5])?,
+                //      bincode::deserialize(&data[5..6])?,
+                //      bincode::deserialize(&data[6..10])?,
+                //      Data::Buffer(data[10..].to_vec()),
+                //  );
+
+                let version = bincode::deserialize(&data[0..4])?;
+                let node_type = bincode::deserialize(&data[4..8]);
+                let state = bincode::deserialize(&data[8..12])?;
+                let height = bincode::deserialize(&data[12..16])?;
+                let hash = Data::Buffer(data[16..].to_vec());
+                Self::Ping(version, node_type.unwrap(), state, height, hash)
             }
             8 => {
                 let is_fork = match data[0] {
