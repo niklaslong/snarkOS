@@ -524,6 +524,7 @@ impl<N: Network, E: Environment> Ledger<N, E> {
     /// Returns `true` if the given block is successfully added to the *canon* chain.
     ///
     async fn add_block(&self, unconfirmed_block: Block<N>, prover_router: &ProverRouter<N>) -> bool {
+        dbg!(unconfirmed_block.transactions());
         // Retrieve the unconfirmed block height.
         let unconfirmed_block_height = unconfirmed_block.height();
         // Retrieve the unconfirmed block hash.
