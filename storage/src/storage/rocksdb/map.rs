@@ -22,6 +22,8 @@ use anyhow::bail;
 use rand::{thread_rng, Rng};
 use std::fmt;
 
+use crate::storage::StorageReadWrite;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u16)]
 pub enum MapId {
@@ -40,13 +42,13 @@ pub enum MapId {
 }
 
 #[derive(Clone)]
-pub struct DataMap<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> {
-    pub(super) storage: RocksDB,
+pub struct DataMap<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned, T: StorageAccess = ReadWrite> {
+    pub(super) storage: RocksDB<T>,
     pub(super) context: Vec<u8>,
     pub(super) _phantom: PhantomData<(K, V)>,
 }
 
-impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> DataMap<K, V> {
+impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned, T: StorageAccess> DataMap<K, V, T> {
     #[inline]
     fn create_prefixed_key<Q>(&self, key: &Q) -> Result<Vec<u8>>
     where
@@ -72,18 +74,18 @@ impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> DataMap<K
     }
 
     #[cfg(any(test, feature = "test"))]
-    pub fn storage(&self) -> &RocksDB {
+    pub fn storage(&self) -> &RocksDB<T> {
         &self.storage
     }
 }
 
-impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> fmt::Debug for DataMap<K, V> {
+impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned, T: StorageAccess> fmt::Debug for DataMap<K, V, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DataMap").field("context", &self.context).finish()
     }
 }
 
-impl<'a, K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> Map<'a, K, V> for DataMap<K, V> {
+impl<'a, K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned, T: StorageAccess> MapRead<'a, K, V> for DataMap<K, V, T> {
     type Iterator = Iter<'a, K, V>;
     type Keys = Keys<'a, K>;
     type Values = Values<'a, V>;
@@ -114,6 +116,47 @@ impl<'a, K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> Map<'
         }
     }
 
+    ///
+    /// Returns an iterator visiting each key-value pair in the map.
+    ///
+    fn iter(&'a self) -> Self::Iterator {
+        Iter::new(self.storage.rocksdb.prefix_iterator(&self.context))
+    }
+
+    ///
+    /// Returns an iterator over each key in the map.
+    ///
+    fn keys(&'a self) -> Self::Keys {
+        Keys::new(self.storage.rocksdb.prefix_iterator(&self.context))
+    }
+
+    ///
+    /// Returns an iterator over each value in the map.
+    ///
+    fn values(&'a self) -> Self::Values {
+        Values::new(self.storage.rocksdb.prefix_iterator(&self.context))
+    }
+
+    ///
+    /// Performs a refresh operation for implementations of `Map` that perform periodic operations.
+    /// This method is implemented here for RocksDB to catch up a reader (secondary) database.
+    /// Returns `true` if the sequence number of the database has increased.
+    ///
+    fn refresh(&self) -> bool {
+        // If the storage is in read-only mode, catch it up to its writable storage.
+        let original_sequence_number = self.storage.rocksdb.latest_sequence_number();
+        if self.storage.rocksdb.try_catch_up_with_primary().is_ok() {
+            let new_sequence_number = self.storage.rocksdb.latest_sequence_number();
+            new_sequence_number > original_sequence_number
+        } else {
+            false
+        }
+    }
+}
+
+impl<'a, K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned, T: StorageReadWrite> MapReadWrite<'a, K, V>
+    for DataMap<K, V, T>
+{
     ///
     /// Inserts the given key-value pair into the map. Can be paired with a numeric
     /// batch id, which defers the operation until `execute_batch` is called using
@@ -155,44 +198,6 @@ impl<'a, K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> Map<'
         }
 
         Ok(())
-    }
-
-    ///
-    /// Returns an iterator visiting each key-value pair in the map.
-    ///
-    fn iter(&'a self) -> Self::Iterator {
-        Iter::new(self.storage.rocksdb.prefix_iterator(&self.context))
-    }
-
-    ///
-    /// Returns an iterator over each key in the map.
-    ///
-    fn keys(&'a self) -> Self::Keys {
-        Keys::new(self.storage.rocksdb.prefix_iterator(&self.context))
-    }
-
-    ///
-    /// Returns an iterator over each value in the map.
-    ///
-    fn values(&'a self) -> Self::Values {
-        Values::new(self.storage.rocksdb.prefix_iterator(&self.context))
-    }
-
-    ///
-    /// Performs a refresh operation for implementations of `Map` that perform periodic operations.
-    /// This method is implemented here for RocksDB to catch up a reader (secondary) database.
-    /// Returns `true` if the sequence number of the database has increased.
-    ///
-    fn refresh(&self) -> bool {
-        // If the storage is in read-only mode, catch it up to its writable storage.
-        if self.storage.is_read_only {
-            let original_sequence_number = self.storage.rocksdb.latest_sequence_number();
-            if self.storage.rocksdb.try_catch_up_with_primary().is_ok() {
-                let new_sequence_number = self.storage.rocksdb.latest_sequence_number();
-                return new_sequence_number > original_sequence_number;
-            }
-        }
-        false
     }
 
     ///

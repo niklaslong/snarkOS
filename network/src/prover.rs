@@ -20,7 +20,10 @@ use snarkos_environment::{
     network::{Data, Message},
     Environment,
 };
-use snarkos_storage::{storage::Storage, ProverState};
+use snarkos_storage::{
+    storage::{rocksdb::RocksDB, ReadWrite},
+    ProverState,
+};
 use snarkvm::dpc::{posw::PoSWProof, prelude::*};
 
 use anyhow::{anyhow, Result};
@@ -62,7 +65,7 @@ pub enum ProverRequest<N: Network> {
 ///
 pub struct Prover<N: Network, E: Environment> {
     /// The state storage of the prover.
-    prover_state: Arc<ProverState<N>>,
+    prover_state: Arc<ProverState<N, ReadWrite>>,
     /// The Aleo address of the prover.
     pub address: Option<Address<N>>,
     /// The IP address of the connected pool.
@@ -77,7 +80,7 @@ pub struct Prover<N: Network, E: Environment> {
 
 impl<N: Network, E: Environment> Prover<N, E> {
     /// Initializes a new instance of the prover, paired with its handler.
-    pub async fn open<S: Storage, P: AsRef<Path> + Copy>(
+    pub async fn open<P: AsRef<Path> + Copy>(
         path: P,
         address: Option<Address<N>>,
         pool_ip: Option<SocketAddr>,
@@ -87,7 +90,7 @@ impl<N: Network, E: Environment> Prover<N, E> {
         let (prover_router, prover_handler) = mpsc::channel(1024);
         // Initialize the prover.
         let prover = Self {
-            prover_state: Arc::new(ProverState::open::<S, P>(path, false)?),
+            prover_state: Arc::new(ProverState::open::<RocksDB, P>(path)?),
             address,
             pool: pool_ip,
             prover_router,
