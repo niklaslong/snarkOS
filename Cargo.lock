@@ -1097,12 +1097,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "hashlink"
-version = "0.7.0"
+name = "hashbrown"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7249a3129cbc1ffccd74857f81464a323a152173cdb134e0fd81bc803b29facf"
+checksum = "607c8a29735385251a339424dd462993c0fed8fa09d378f259377df08c126022"
 dependencies = [
- "hashbrown",
+ "ahash",
+]
+
+[[package]]
+name = "hashlink"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d452c155cb93fecdfb02a73dd57b5d8e442c2063bd7aac72f1bc5e4263a43086"
+dependencies = [
+ "hashbrown 0.12.2",
 ]
 
 [[package]]
@@ -1234,7 +1243,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.11.2",
 ]
 
 [[package]]
@@ -1431,9 +1440,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.23.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abd5850c449b40bacb498b2bbdfaff648b1b055630073ba8db499caf2d0ea9f2"
+checksum = "e8664486da51de68fbb3331d37c2a0fff4b60e988f284670a6a0833a8e6406ad"
 dependencies = [
  "cc",
  "pkg-config",
@@ -1586,7 +1595,7 @@ dependencies = [
  "crossbeam-epoch 0.9.5",
  "crossbeam-utils 0.8.5",
  "dashmap",
- "hashbrown",
+ "hashbrown 0.11.2",
  "indexmap",
  "metrics",
  "num_cpus",
@@ -2393,16 +2402,15 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.26.1"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a82b0b91fad72160c56bf8da7a549b25d7c31109f52cc1437eac4c0ad2550a7"
+checksum = "01e213bc3ecb39ac32e81e51ebe31fd888a940515173e3a18a35f8c6e896422a"
 dependencies = [
  "bitflags",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
  "libsqlite3-sys",
- "memchr",
  "smallvec",
 ]
 
@@ -3074,7 +3082,7 @@ dependencies = [
  "blake2",
  "derivative",
  "digest 0.9.0",
- "hashbrown",
+ "hashbrown 0.11.2",
  "rand 0.8.4",
  "rand_chacha 0.3.1",
  "rand_core 0.6.3",
@@ -3110,7 +3118,7 @@ checksum = "c23a7fa2aab25aa6fc3b7fb27b3d639936725a5c29b29936d1530b64bd011e67"
 dependencies = [
  "derivative",
  "digest 0.9.0",
- "hashbrown",
+ "hashbrown 0.11.2",
  "rand_core 0.6.3",
  "snarkvm-algorithms",
  "snarkvm-curves",
