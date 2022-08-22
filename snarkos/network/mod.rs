@@ -26,6 +26,7 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::mpsc,
+    task,
 };
 use tokio_util::codec::Framed;
 
@@ -208,7 +209,7 @@ pub(crate) async fn handle_peer<N: Network>(
 }
 
 /// Handle connection listener for new peers.
-pub async fn handle_listener<N: Network>(listener: TcpListener, ledger: Arc<Ledger<N>>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_listener<N: Network>(listener: TcpListener, ledger: Arc<Ledger<N>>) -> task::JoinHandle<()> {
     info!("Listening to connections at: {}", listener.local_addr().unwrap());
 
     tokio::spawn(async move {
@@ -227,13 +228,11 @@ pub async fn handle_listener<N: Network>(listener: TcpListener, ledger: Arc<Ledg
                 Err(error) => warn!("Failed to accept a connection: {}", error),
             }
         }
-    });
-
-    Ok(())
+    })
 }
 
 /// Send a ping to all peers every 10 seconds.
-pub fn send_pings<N: Network>(ledger: Arc<Ledger<N>>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn send_pings<N: Network>(ledger: Arc<Ledger<N>>) -> task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(time::Duration::from_secs(10));
         loop {
@@ -247,13 +246,11 @@ pub fn send_pings<N: Network>(ledger: Arc<Ledger<N>>) -> Result<(), Box<dyn std:
                 }
             }
         }
-    });
-
-    Ok(())
+    })
 }
 
 /// Handle connection with the leader.
-pub async fn connect_to_leader<N: Network>(initial_peer: SocketAddr, ledger: Arc<Ledger<N>>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn connect_to_leader<N: Network>(initial_peer: SocketAddr, ledger: Arc<Ledger<N>>) -> task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(time::Duration::from_secs(10));
         loop {
@@ -273,7 +270,5 @@ pub async fn connect_to_leader<N: Network>(initial_peer: SocketAddr, ledger: Arc
             }
             interval.tick().await;
         }
-    });
-
-    Ok(())
+    })
 }
