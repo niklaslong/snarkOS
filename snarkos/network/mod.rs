@@ -111,12 +111,15 @@ pub(crate) async fn handle_peer<N: Network>(
                                 debug!("Peer requested block {height}, which is greater than the current height {latest_height}");
                             } else {
                                 let block = ledger.ledger().read().get_block(height)?;
-                                let response = Message::BlockResponse(block);
+                                let response = Message::BlockResponse(Data::Object(block));
 
                                 peer.outbound.send(response).await?;
                             }
                         },
-                        Message::BlockResponse(block) => {
+                        Message::BlockResponse(block_bytes) => {
+                            // Perform deferred deserialization.
+                            let block = block_bytes.deserialize().await?;
+
                             // Check if the block can be added to the ledger.
                             if block.height() == ledger.ledger().read().latest_height() + 1 {
                                 // Attempt to add the block to the ledger.
@@ -131,7 +134,10 @@ pub(crate) async fn handle_peer<N: Network>(
                                 trace!("Skipping block {} (height: {})", block.hash(), block.height());
                             }
                         },
-                        Message::TransactionBroadcast(transaction) => {
+                        Message::TransactionBroadcast(transaction_bytes) => {
+                            // Perform deferred deserialization.
+                            let transaction = transaction_bytes.deserialize().await?;
+
                             let transaction_id = transaction.id();
 
                             // Check that the transaction doesn't already exist in the ledger or mempool.
@@ -143,7 +149,7 @@ pub(crate) async fn handle_peer<N: Network>(
                                         let peers = ledger.peers().read().clone();
                                         tokio::spawn(async move {
                                             for (_, sender) in peers.iter().filter(|(ip, _)| *ip != &peer.ip) {
-                                                let _ = sender.send(Message::<N>::TransactionBroadcast(transaction.clone())).await;
+                                                let _ = sender.send(Message::<N>::TransactionBroadcast(Data::Object(transaction.clone()))).await;
                                             }
                                         });
 
@@ -158,7 +164,10 @@ pub(crate) async fn handle_peer<N: Network>(
                                 }
                             }
                         },
-                        Message::BlockBroadcast(block) => {
+                        Message::BlockBroadcast(block_bytes) => {
+                            // Perform deferred deserialization.
+                            let block = block_bytes.deserialize().await?;
+
                             // Check if the block can be added to the ledger.
                             if block.height() == ledger.ledger().read().latest_height() + 1 {
                                 // Attempt to add the block to the ledger.
@@ -170,7 +179,7 @@ pub(crate) async fn handle_peer<N: Network>(
                                         let peers = ledger.peers().read().clone();
                                         tokio::spawn(async move {
                                             for (_, sender) in peers.iter().filter(|(ip, _)| *ip != &peer.ip) {
-                                                let _ = sender.send(Message::<N>::BlockBroadcast(block.clone())).await;
+                                                let _ = sender.send(Message::<N>::BlockBroadcast(Data::Object(block.clone()))).await;
                                             }
                                         });
                                     },
