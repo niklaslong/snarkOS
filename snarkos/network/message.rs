@@ -68,6 +68,7 @@ impl<T: FromBytes + ToBytes + Send + 'static> Data<T> {
     }
 }
 
+#[derive(Clone)]
 pub enum Message<N: Network> {
     /// Ping with the current block height.
     Ping,
