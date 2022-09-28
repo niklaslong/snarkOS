@@ -17,6 +17,8 @@
 mod message;
 pub use message::*;
 
+mod codec;
+
 use crate::Ledger;
 
 use snarkvm::prelude::*;
