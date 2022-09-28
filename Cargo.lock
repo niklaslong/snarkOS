@@ -284,7 +284,7 @@ version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9cf849ee05b2ee5fba5e36f97ff8ec2533916700fc0758d40d92136a42f3388"
 dependencies = [
- "digest 0.10.3",
+ "digest 0.10.5",
 ]
 
 [[package]]
@@ -727,7 +727,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12dc3116fe595d7847c701796ac1b189bd86b81f4f593c6f775f9d80fb2e29f4"
 dependencies = [
  "byteorder",
- "digest 0.10.3",
+ "digest 0.10.5",
  "rand_core",
  "subtle",
  "zeroize",
@@ -1331,7 +1331,7 @@ dependencies = [
  "rand",
  "time",
  "tokio",
- "tokio-util 0.7.4",
+ "tokio-util",
 ]
 
 [[package]]
@@ -3080,7 +3080,7 @@ dependencies = [
  "curve25519-dalek",
  "rand_core",
  "rustc_version",
- "sha2 0.10.5",
+ "sha2 0.10.6",
  "subtle",
 ]
 

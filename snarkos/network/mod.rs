@@ -24,6 +24,7 @@ use crate::Ledger;
 use snarkvm::prelude::*;
 
 use futures::{SinkExt, StreamExt};
+use kadmium::tcp::SyncTcpRouter;
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
@@ -77,6 +78,7 @@ pub(crate) async fn handle_peer<N: Network>(
     stream: TcpStream,
     peer_ip: SocketAddr,
     ledger: Arc<Ledger<N>>,
+    router: SyncTcpRouter,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut peer = Peer::<N>::new(stream, ledger.clone()).await?;
 
@@ -229,18 +231,19 @@ pub(crate) async fn handle_peer<N: Network>(
 }
 
 /// Handle connection listener for new peers.
-pub fn handle_listener<N: Network>(listener: TcpListener, ledger: Arc<Ledger<N>>) -> task::JoinHandle<()> {
+pub fn handle_listener<N: Network>(listener: TcpListener, ledger: Arc<Ledger<N>>, router: SyncTcpRouter) -> task::JoinHandle<()> {
     info!("Listening to connections at: {}", listener.local_addr().unwrap());
 
     tokio::spawn(async move {
         loop {
             let ledger_clone = ledger.clone();
+            let router_clone = router.clone();
 
             match listener.accept().await {
                 // Process the inbound connection request.
                 Ok((stream, peer_ip)) => {
                     tokio::spawn(async move {
-                        if let Err(err) = handle_peer::<N>(stream, peer_ip, ledger_clone.clone()).await {
+                        if let Err(err) = handle_peer::<N>(stream, peer_ip, ledger_clone, router_clone).await {
                             warn!("Error handling peer {}: {:?}", peer_ip, err);
                         }
                     });
@@ -279,26 +282,26 @@ pub fn send_pings<N: Network>(ledger: Arc<Ledger<N>>) -> task::JoinHandle<()> {
     })
 }
 
-/// Handle connection with the leader.
-pub fn connect_to_leader<N: Network>(initial_peer: SocketAddr, ledger: Arc<Ledger<N>>) -> task::JoinHandle<()> {
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(time::Duration::from_secs(10));
-        loop {
-            if !ledger.peers().read().contains_key(&initial_peer) {
-                trace!("Attempting to connect to peer {}", initial_peer);
-                match TcpStream::connect(initial_peer).await {
-                    Ok(stream) => {
-                        let ledger_clone = ledger.clone();
-                        tokio::spawn(async move {
-                            if let Err(err) = handle_peer::<N>(stream, initial_peer, ledger_clone).await {
-                                warn!("Error handling peer {}: {:?}", initial_peer, err);
-                            }
-                        });
-                    }
-                    Err(error) => warn!("Failed to connect to peer {}: {}", initial_peer, error),
-                }
-            }
-            interval.tick().await;
-        }
-    })
-}
+// /// Handle connection with the leader.
+// pub fn connect_to_leader<N: Network>(initial_peer: SocketAddr, ledger: Arc<Ledger<N>>) -> task::JoinHandle<()> {
+//     tokio::spawn(async move {
+//         let mut interval = tokio::time::interval(time::Duration::from_secs(10));
+//         loop {
+//             if !ledger.peers().read().contains_key(&initial_peer) {
+//                 trace!("Attempting to connect to peer {}", initial_peer);
+//                 match TcpStream::connect(initial_peer).await {
+//                     Ok(stream) => {
+//                         let ledger_clone = ledger.clone();
+//                         tokio::spawn(async move {
+//                             if let Err(err) = handle_peer::<N>(stream, initial_peer, ledger_clone).await {
+//                                 warn!("Error handling peer {}: {:?}", initial_peer, err);
+//                             }
+//                         });
+//                     }
+//                     Err(error) => warn!("Failed to connect to peer {}: {}", initial_peer, error),
+//                 }
+//             }
+//             interval.tick().await;
+//         }
+//     })
+// }

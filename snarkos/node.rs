@@ -16,18 +16,21 @@
 
 use crate::CLI;
 
-use crate::{connect_to_leader, handle_listener, handle_peer, request_genesis_block, send_pings, Account, Ledger};
+use crate::{handle_listener, handle_peer, request_genesis_block, send_pings, Account, Ledger};
 use snarkos_environment::{helpers::Status, Environment};
 use snarkvm::prelude::Network;
 
 use anyhow::{bail, Result};
 use core::marker::PhantomData;
+use kadmium::{tcp::SyncTcpRouter, Id};
 use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Clone)]
 pub struct Node<N: Network, E: Environment> {
     /// The ledger.
     ledger: Arc<Ledger<N>>,
+    /// The kadmium router, this is clonable.
+    router: SyncTcpRouter,
     /// PhantomData.
     _phantom: PhantomData<(N, E)>,
 }
@@ -59,19 +62,24 @@ impl<N: Network, E: Environment> Node<N, E> {
         // Initialize the listener.
         let listener = tokio::net::TcpListener::bind(cli.node).await?;
 
+        const BUCKET_SIZE: u8 = 100;
+        const K: u8 = 25;
+        let router = SyncTcpRouter::new(Id::rand(), BUCKET_SIZE, K);
+
         // Handle incoming connections.
-        let _handle_listener = handle_listener::<N>(listener, ledger.clone());
+        let _handle_listener = handle_listener::<N>(listener, ledger.clone(), router.clone());
 
         // Connect to the leader node and listen for new blocks.
-        let leader_addr = cli.beacon_addr;
-        trace!("Connecting to '{}'...", leader_addr);
-        let _leader_conn_task = connect_to_leader::<N>(leader_addr, ledger.clone());
+        // let leader_addr = cli.beacon_addr;
+        // trace!("Connecting to '{}'...", leader_addr);
+        // let _leader_conn_task = connect_to_leader::<N>(leader_addr, ledger.clone());
 
         // Send pings to all peers every 10 seconds.
         let _pings = send_pings::<N>(ledger.clone());
 
         Ok(Self {
-            ledger: ledger.clone(),
+            ledger,
+            router,
             _phantom: PhantomData,
         })
     }
@@ -82,8 +90,9 @@ impl<N: Network, E: Environment> Node<N, E> {
         match tokio::net::TcpStream::connect(peer_ip).await {
             Ok(stream) => {
                 let ledger = self.ledger.clone();
+                let router = self.router.clone();
                 tokio::spawn(async move {
-                    if let Err(err) = handle_peer::<N>(stream, peer_ip, ledger).await {
+                    if let Err(err) = handle_peer::<N>(stream, peer_ip, ledger, router).await {
                         warn!("Failed to handle connection with peer {}: {:?}", peer_ip, err);
                     }
                 });
