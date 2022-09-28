@@ -22,7 +22,6 @@ use kadmium::{
     message::{Init, Message},
     Id,
 };
-use pea2pea::{protocols::Handshake, Connection, ConnectionSide, Pea2Pea};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpStream,
@@ -30,10 +29,12 @@ use tokio::{
 use tokio_util::codec::{Framed, FramedParts};
 use tracing::*;
 
-use crate::client::{
-    codec::{MessageOrBytes, NoiseCodec, NoiseState},
-    network::ClientNetwork,
-};
+use crate::network::codec::{MessageOrBytes, NoiseCodec, NoiseState};
+
+pub enum ConnectionSide {
+    Initiator,
+    Responder,
+}
 
 // async fn perform_handshake(&self, mut conn: Connection) -> io::Result<Connection> {
 //     let noise_builder = snow::Builder::new("Noise_XX_25519_ChaChaPoly_BLAKE2s".parse().unwrap());

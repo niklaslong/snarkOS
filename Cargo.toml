@@ -76,6 +76,10 @@ version = "2.0"
 version = "0.24"
 optional = true
 
+[dependencies.futures-util]
+version = "0.3.24"
+features = ["sink"]
+
 [dependencies.kadmium]
 git = "https://github.com/niklaslong/kadmium"
 features = ["codec", "sync"]
