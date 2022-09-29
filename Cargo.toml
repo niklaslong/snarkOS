@@ -31,6 +31,7 @@ path = "snarkos/main.rs"
 #path = "src/main.rs"
 
 [dependencies]
+async-trait = "0.1.57"
 backoff = { version = "0.4", features = ["tokio"] }
 bytes = { version = "1" }
 dotenv = { version = "0.15" }
@@ -41,6 +42,7 @@ indexmap = { version = "1.9", features = ["rayon"] }
 once_cell = { version = "1.15.0" }
 parking_lot = { version = "0.12" }
 rusoto_core = { version = "0.48" }
+snow = "0.9.0"
 tokio-util = { version = "0.7.4" }
 warp = { version = "0.3" }
 
@@ -74,6 +76,14 @@ version = "2.0"
 [dependencies.crossterm]
 version = "0.24"
 optional = true
+
+[dependencies.futures-util]
+version = "0.3.24"
+features = ["sink"]
+
+[dependencies.kadmium]
+git = "https://github.com/niklaslong/kadmium"
+features = ["codec", "sync"]
 
 [dependencies.num_cpus]
 version = "1"

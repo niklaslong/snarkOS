@@ -35,6 +35,8 @@ pub use cli::*;
 mod ledger;
 pub use ledger::*;
 
+mod new_network;
+
 mod network;
 pub use network::*;
 
