@@ -16,6 +16,10 @@
 
 use std::{io, net::SocketAddr};
 
+use crate::new_network::{
+    connections::{Connection, ConnectionSide},
+    Node,
+};
 use bytes::Bytes;
 use futures_util::{sink::SinkExt, TryStreamExt};
 use kadmium::{
@@ -29,41 +33,43 @@ use tokio::{
 use tokio_util::codec::{Framed, FramedParts};
 use tracing::*;
 
-use crate::new_network::codec::{MessageOrBytes, NoiseCodec, NoiseState};
+use crate::new_network::{
+    codec::{MessageOrBytes, NoiseCodec, NoiseState},
+    protocols::Handshake,
+    Pea2Pea,
+};
 
-pub enum ConnectionSide {
-    Initiator,
-    Responder,
+#[async_trait::async_trait]
+impl Handshake for Node {
+    async fn perform_handshake(&self, mut conn: Connection) -> io::Result<Connection> {
+        let noise_builder = snow::Builder::new("Noise_XX_25519_ChaChaPoly_BLAKE2s".parse().unwrap());
+        let noise_keypair = noise_builder.generate_keypair().unwrap();
+        let noise_builder = noise_builder.local_private_key(&noise_keypair.private);
+
+        let local_id = self.router().local_id();
+        let local_listening_port = self.node().listening_addr().unwrap().port();
+
+        let peer_side = conn.side();
+        let stream = self.borrow_stream(&mut conn);
+
+        // Perform the Noise handshake.
+        let (noise_state, _payload) = handshake_xx(stream, peer_side, noise_builder, MessageOrBytes::Bytes(Bytes::new())).await?;
+
+        // Perform the Kadmium handshake.
+        let (noise_state, peer_id, peer_addr, conn_addr) =
+            handshake_kadmium(stream, noise_state, local_id, local_listening_port, peer_side, self.span()).await?;
+
+        self.router().insert(peer_id, peer_addr);
+        self.router().set_connected(peer_id, conn_addr);
+
+        // Save the noise state to be reused by Reading and Writing.
+        self.insert_meta(conn_addr, conn.side(), noise_state);
+
+        info!(parent: self.span(), "handshake successful with {}", conn_addr);
+
+        Ok(conn)
+    }
 }
-
-// async fn perform_handshake(&self, mut conn: Connection) -> io::Result<Connection> {
-//     let noise_builder = snow::Builder::new("Noise_XX_25519_ChaChaPoly_BLAKE2s".parse().unwrap());
-//     let noise_keypair = noise_builder.generate_keypair().unwrap();
-//     let noise_builder = noise_builder.local_private_key(&noise_keypair.private);
-//
-//     let local_id = self.router().local_id();
-//     let local_listening_port = self.node().listening_addr().unwrap().port();
-//
-//     let peer_side = conn.side();
-//     let stream = self.borrow_stream(&mut conn);
-//
-//     // Perform the Noise handshake.
-//     let (noise_state, _payload) = handshake_xx(stream, peer_side, noise_builder, MessageOrBytes::Bytes(Bytes::new())).await?;
-//
-//     // Perform the Kadmium handshake.
-//     let (noise_state, peer_id, peer_addr, conn_addr) =
-//         handshake_kadmium(stream, noise_state, local_id, local_listening_port, peer_side, self.span()).await?;
-//
-//     self.router().insert(peer_id, peer_addr);
-//     self.router().set_connected(peer_id, conn_addr);
-//
-//     // Save the noise state to be reused by Reading and Writing.
-//     self.insert_meta(conn_addr, conn.side(), noise_state);
-//
-//     info!(parent: self.span(), "handshake successful with {}", conn_addr);
-//
-//     Ok(conn)
-// }
 
 pub async fn handshake_xx<T>(
     inner: &mut T,

@@ -15,7 +15,7 @@
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     io,
     net::SocketAddr,
     ops::Deref,
@@ -35,12 +35,16 @@ use tokio::{
 use tracing::*;
 
 use crate::new_network::{
+    codec::NoiseState,
     config::Config,
     connections::{Connection, ConnectionSide, Connections},
     known_peers::KnownPeers,
     protocols::{Protocol, Protocols},
     stats::Stats,
+    Pea2Pea,
 };
+use kadmium::{tcp::SyncTcpRouter, Id};
+use parking_lot::RwLock;
 
 macro_rules! enable_protocol {
     ($handler_type: ident, $node:expr, $conn: expr) => {
@@ -63,20 +67,52 @@ macro_rules! enable_protocol {
 // A seuential numeric identifier assigned to `Node`s that were not provided with a name.
 static SEQUENTIAL_NODE_ID: AtomicUsize = AtomicUsize::new(0);
 
+struct ConnectionMeta {
+    side: ConnectionSide,
+    noise_state: NoiseState,
+}
+
+impl ConnectionMeta {
+    fn new(side: ConnectionSide, noise_state: NoiseState) -> Self {
+        Self { side, noise_state }
+    }
+}
+
 /// The central object responsible for handling connections.
 #[derive(Clone)]
-pub struct Node(Arc<InnerNode>);
+pub struct Node {
+    network: Arc<Network>,
+    // TODO: consolidate into network.
+    router: SyncTcpRouter,
+    connection_meta: Arc<RwLock<HashMap<SocketAddr, ConnectionMeta>>>,
+}
 
 impl Deref for Node {
-    type Target = Arc<InnerNode>;
+    type Target = Arc<Network>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.network
+    }
+}
+
+impl Pea2Pea for Node {
+    fn node(&self) -> &Node {
+        &self
+    }
+}
+
+impl Node {
+    pub fn router(&self) -> &SyncTcpRouter {
+        &self.router
+    }
+
+    pub fn insert_meta(&self, addr: SocketAddr, side: ConnectionSide, noise_state: NoiseState) {
+        self.connection_meta.write().insert(addr, ConnectionMeta::new(side, noise_state));
     }
 }
 
 #[doc(hidden)]
-pub struct InnerNode {
+pub struct Network {
     /// The tracing span.
     span: Span,
     /// The node's configuration.
@@ -145,17 +181,21 @@ impl Node {
             None
         };
 
-        let node = Node(Arc::new(InnerNode {
-            span,
-            config,
-            listening_addr,
-            protocols: Default::default(),
-            connecting: Default::default(),
-            connections: Default::default(),
-            known_peers: Default::default(),
-            stats: Default::default(),
-            tasks: Default::default(),
-        }));
+        let node = Node {
+            network: Arc::new(Network {
+                span,
+                config,
+                listening_addr,
+                protocols: Default::default(),
+                connecting: Default::default(),
+                connections: Default::default(),
+                known_peers: Default::default(),
+                stats: Default::default(),
+                tasks: Default::default(),
+            }),
+            router: SyncTcpRouter::new(Id::rand(), 100, 25),
+            connection_meta: Arc::new(RwLock::new(HashMap::new())),
+        };
 
         if let Some(listener) = listener {
             // use a channel to know when the listening task is ready
