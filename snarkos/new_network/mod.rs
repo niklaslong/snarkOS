@@ -19,6 +19,7 @@ mod config;
 mod connections;
 mod handshake;
 mod known_peers;
+mod messaging;
 mod node;
 mod protocols;
 mod stats;

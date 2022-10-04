@@ -106,8 +106,16 @@ impl Node {
         &self.router
     }
 
+    pub fn noise_state(&self, addr: SocketAddr) -> Option<NoiseState> {
+        self.connection_meta.read().get(&addr).map(|meta| meta.noise_state.clone())
+    }
+
     pub fn insert_meta(&self, addr: SocketAddr, side: ConnectionSide, noise_state: NoiseState) {
         self.connection_meta.write().insert(addr, ConnectionMeta::new(side, noise_state));
+    }
+
+    pub fn remove_meta(&self, addr: SocketAddr) {
+        self.connection_meta.write().remove(&addr);
     }
 }
 
