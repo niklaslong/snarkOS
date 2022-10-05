@@ -30,6 +30,8 @@ use crate::new_network::core::{
 #[derive(Clone)]
 pub struct Node {
     pub network: Arc<Network>,
+    // ledger: Arc<Ledger<N>>,
+
     // TODO: consolidate into network.
     pub router: SyncTcpRouter,
     pub connection_meta: Arc<RwLock<HashMap<SocketAddr, ConnectionMeta>>>,

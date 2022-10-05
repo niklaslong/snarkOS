@@ -15,7 +15,7 @@
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     io,
     net::SocketAddr,
     sync::{
@@ -24,8 +24,7 @@ use std::{
     },
 };
 
-use kadmium::{tcp::SyncTcpRouter, Id};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use tokio::{
     io::split,
     net::{TcpListener, TcpStream},
@@ -34,16 +33,13 @@ use tokio::{
 };
 use tracing::*;
 
-use crate::new_network::{
-    core::{
-        codec::NoiseState,
-        config::Config,
-        connections::{Connection, ConnectionSide, Connections},
-        known_peers::KnownPeers,
-        protocols::{Protocol, Protocols},
-        stats::Stats,
-    },
-    node::Node,
+use crate::new_network::core::{
+    codec::NoiseState,
+    config::Config,
+    connections::{Connection, ConnectionSide, Connections},
+    known_peers::KnownPeers,
+    protocols::{Protocol, Protocols},
+    stats::Stats,
 };
 
 macro_rules! enable_protocol {
@@ -100,10 +96,9 @@ pub struct Network {
     pub(crate) tasks: Mutex<Vec<JoinHandle<()>>>,
 }
 
-// TODO: should probably be implemented on the network.
-impl Node {
+impl Network {
     /// Creates a new [`Node`] using the given [`Config`].
-    pub async fn new(mut config: Config) -> io::Result<Self> {
+    pub async fn new(mut config: Config) -> io::Result<Arc<Self>> {
         // if there is no pre-configured name, assign a sequential numeric identifier
         if config.name.is_none() {
             config.name = Some(SEQUENTIAL_NODE_ID.fetch_add(1, SeqCst).to_string());
@@ -149,66 +144,62 @@ impl Node {
             None
         };
 
-        let node = Node {
-            network: Arc::new(Network {
-                span,
-                config,
-                listening_addr,
-                protocols: Default::default(),
-                connecting: Default::default(),
-                connections: Default::default(),
-                known_peers: Default::default(),
-                stats: Default::default(),
-                tasks: Default::default(),
-            }),
-            router: SyncTcpRouter::new(Id::rand(), 100, 25),
-            connection_meta: Arc::new(RwLock::new(HashMap::new())),
-        };
+        let network = Arc::new(Network {
+            span,
+            config,
+            listening_addr,
+            protocols: Default::default(),
+            connecting: Default::default(),
+            connections: Default::default(),
+            known_peers: Default::default(),
+            stats: Default::default(),
+            tasks: Default::default(),
+        });
 
         if let Some(listener) = listener {
             // use a channel to know when the listening task is ready
             let (tx, rx) = oneshot::channel();
 
-            let node_clone = node.clone();
+            let network_clone = network.clone();
             let listening_task = tokio::spawn(async move {
-                trace!(parent: node_clone.span(), "spawned the listening task");
+                trace!(parent: network_clone.span(), "spawned the listening task");
                 tx.send(()).unwrap(); // safe; the channel was just opened
 
                 loop {
                     match listener.accept().await {
                         Ok((stream, addr)) => {
-                            debug!(parent: node_clone.span(), "tentatively accepted a connection from {}", addr);
+                            debug!(parent: network_clone.span(), "tentatively accepted a connection from {}", addr);
 
-                            if !node_clone.can_add_connection() {
-                                debug!(parent: node_clone.span(), "rejecting the connection from {}", addr);
+                            if !network_clone.can_add_connection() {
+                                debug!(parent: network_clone.span(), "rejecting the connection from {}", addr);
                                 continue;
                             }
 
-                            node_clone.connecting.lock().insert(addr);
+                            network_clone.connecting.lock().insert(addr);
 
-                            let node_clone2 = node_clone.clone();
+                            let network_clone2 = network_clone.clone();
                             tokio::spawn(async move {
-                                if let Err(e) = node_clone2.adapt_stream(stream, addr, ConnectionSide::Responder).await {
-                                    node_clone2.connecting.lock().remove(&addr);
-                                    node_clone2.known_peers().register_failure(addr);
-                                    error!(parent: node_clone2.span(), "couldn't accept a connection: {}", e);
+                                if let Err(e) = network_clone2.adapt_stream(stream, addr, ConnectionSide::Responder).await {
+                                    network_clone2.connecting.lock().remove(&addr);
+                                    network_clone2.known_peers().register_failure(addr);
+                                    error!(parent: network_clone2.span(), "couldn't accept a connection: {}", e);
                                 }
                             });
                         }
                         Err(e) => {
-                            error!(parent: node_clone.span(), "couldn't accept a connection: {}", e);
+                            error!(parent: network_clone.span(), "couldn't accept a connection: {}", e);
                         }
                     }
                 }
             });
-            node.tasks.lock().push(listening_task);
+            network.tasks.lock().push(listening_task);
             let _ = rx.await;
-            debug!(parent: node.span(), "listening on {}", node.listening_addr.unwrap());
+            debug!(parent: network.span(), "listening on {}", network.listening_addr.unwrap());
         }
 
-        debug!(parent: node.span(), "the node is ready");
+        debug!(parent: network.span(), "the network is ready");
 
-        Ok(node)
+        Ok(network)
     }
 
     /// Returns the name assigned to the node.
