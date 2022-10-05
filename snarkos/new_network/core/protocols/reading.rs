@@ -26,14 +26,16 @@ use tokio::{
 use tokio_util::codec::{Decoder, FramedRead};
 use tracing::*;
 
-use crate::new_network::{
-    connections::ConnectionSide,
-    node::Node,
-    protocols::{ProtocolHandler, ReturnableConnection},
-    Pea2Pea,
-};
 #[cfg(doc)]
-use crate::new_network::{protocols::Handshake, Config};
+use crate::new_network::core::{protocols::Handshake, Config};
+use crate::new_network::{
+    core::{
+        connections::ConnectionSide,
+        protocols::{ProtocolHandler, ReturnableConnection},
+        Pea2Pea,
+    },
+    node::Node,
+};
 
 /// Can be used to specify and enable reading, i.e. receiving inbound messages. If the [`Handshake`]
 /// protocol is enabled too, it goes into force only after the handshake has been concluded.

@@ -24,7 +24,7 @@ use tokio::{
 };
 use tracing::*;
 
-use crate::new_network::{
+use crate::new_network::core::{
     connections::Connection,
     protocols::{ProtocolHandler, ReturnableConnection},
     Pea2Pea,

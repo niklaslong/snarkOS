@@ -18,11 +18,13 @@ use std::{io, net::SocketAddr};
 
 use crate::{
     new_network::{
-        codec::{MessageOrBytes, NoiseCodec},
-        connections::ConnectionSide,
-        protocols::{Disconnect, Reading, Writing},
-        Node,
-        Pea2Pea,
+        core::{
+            codec::{MessageOrBytes, NoiseCodec},
+            connections::ConnectionSide,
+            protocols::{Disconnect, Reading, Writing},
+            Pea2Pea,
+        },
+        node::Node,
     },
     Message as SnarkOSMessage,
     MessageCodec as SnarkOSCodec,

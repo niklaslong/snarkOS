@@ -14,7 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-mod core;
-mod handshake;
-mod messaging;
-mod node;
+pub mod codec;
+mod config;
+pub mod connections;
+mod known_peers;
+pub mod network;
+pub mod protocols;
+mod stats;
+
+use crate::new_network::node::Node;
+
+/// A trait for objects containing a [`Node`]; it is required to implement protocols.
+pub trait Pea2Pea {
+    /// Returns a clonable reference to the node.
+    fn node(&self) -> &Node;
+}

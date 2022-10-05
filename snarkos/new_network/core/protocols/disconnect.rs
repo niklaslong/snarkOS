@@ -19,9 +19,9 @@ use std::net::SocketAddr;
 use tokio::sync::{mpsc, oneshot};
 use tracing::*;
 
-use crate::new_network::{protocols::ProtocolHandler, Pea2Pea};
+use crate::new_network::core::{protocols::ProtocolHandler, Pea2Pea};
 #[cfg(doc)]
-use crate::new_network::{protocols::Writing, Connection};
+use crate::new_network::core::{protocols::Writing, Connection};
 
 /// Can be used to automatically perform some extra actions when the node disconnects from its
 /// peer, which is especially practical if the disconnect is triggered automatically, e.g. due

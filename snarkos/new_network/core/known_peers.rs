@@ -18,7 +18,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use parking_lot::RwLock;
 
-use crate::new_network::stats::Stats;
+use crate::new_network::core::stats::Stats;
 
 /// Contains statistics related to node's peers, currently connected or not.
 #[derive(Default)]

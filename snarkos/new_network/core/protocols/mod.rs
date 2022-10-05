@@ -23,7 +23,7 @@ use std::{io, net::SocketAddr};
 use once_cell::race::OnceBox;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::new_network::connections::Connection;
+use crate::new_network::core::connections::Connection;
 
 mod disconnect;
 mod handshake;

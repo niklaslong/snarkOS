@@ -26,13 +26,15 @@ use tokio::{
 use tokio_util::codec::{Encoder, FramedWrite};
 use tracing::*;
 
-use crate::new_network::{
+use crate::new_network::core::{
     connections::{Connection, ConnectionSide},
     protocols::{Protocol, ProtocolHandler, ReturnableConnection},
     Pea2Pea,
 };
 #[cfg(doc)]
-use crate::new_network::{protocols::Handshake, Config, Node};
+use crate::new_network::core::{protocols::Handshake, Config};
+#[cfg(doc)]
+use crate::new_network::node::Node;
 
 type WritingSenders = Arc<RwLock<HashMap<SocketAddr, mpsc::Sender<WrappedMessage>>>>;
 
