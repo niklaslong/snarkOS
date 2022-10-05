@@ -14,16 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{
-    collections::{HashMap, HashSet},
-    io,
-    net::SocketAddr,
-    ops::Deref,
-    sync::{
-        atomic::{AtomicUsize, Ordering::*},
-        Arc,
-    },
-};
+use std::{collections::HashMap, net::SocketAddr, ops::Deref, sync::Arc};
 
 use crate::new_network::core::{
     codec::NoiseState,
@@ -32,14 +23,7 @@ use crate::new_network::core::{
     Pea2Pea,
 };
 use kadmium::tcp::SyncTcpRouter;
-use parking_lot::{Mutex, RwLock};
-use tokio::{
-    io::split,
-    net::{TcpListener, TcpStream},
-    sync::oneshot,
-    task::JoinHandle,
-};
-use tracing::*;
+use parking_lot::RwLock;
 
 /// The central object responsible for handling connections.
 #[derive(Clone)]

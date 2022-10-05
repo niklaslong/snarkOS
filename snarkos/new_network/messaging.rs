@@ -16,26 +16,21 @@
 
 use std::{io, net::SocketAddr};
 
-use crate::{
-    new_network::{
-        core::{
-            codec::{MessageOrBytes, NoiseCodec},
-            connections::ConnectionSide,
-            protocols::{Disconnect, Reading, Writing},
-            Pea2Pea,
-        },
-        node::Node,
+use crate::new_network::{
+    core::{
+        codec::{MessageOrBytes, NoiseCodec},
+        connections::ConnectionSide,
+        protocols::{Disconnect, Reading, Writing},
     },
-    Message as SnarkOSMessage,
-    MessageCodec as SnarkOSCodec,
+    node::Node,
 };
-use bytes::BytesMut;
-use kadmium::message::{Message, Response};
-use tokio_util::codec::Decoder;
+
+use kadmium::message::Message;
+
 use tracing::*;
 
 impl Node {
-    async fn process_message(&self, source: SocketAddr, message: Message) -> io::Result<()> {
+    async fn process_message(&self, _source: SocketAddr, _message: Message) -> io::Result<()> {
         todo!()
     }
 }

@@ -18,7 +18,6 @@ use std::{
     collections::{HashMap, HashSet},
     io,
     net::SocketAddr,
-    ops::Deref,
     sync::{
         atomic::{AtomicUsize, Ordering::*},
         Arc,
@@ -42,7 +41,6 @@ use crate::new_network::{
         known_peers::KnownPeers,
         protocols::{Protocol, Protocols},
         stats::Stats,
-        Pea2Pea,
     },
     node::Node,
 };
