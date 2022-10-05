@@ -19,7 +19,7 @@ use std::net::SocketAddr;
 use tokio::sync::{mpsc, oneshot};
 use tracing::*;
 
-use crate::new_network::core::{protocols::ProtocolHandler, Pea2Pea};
+use crate::new_network::core::{protocols::ProtocolHandler, P2P};
 #[cfg(doc)]
 use crate::new_network::core::{protocols::Writing, Connection};
 
@@ -28,7 +28,7 @@ use crate::new_network::core::{protocols::Writing, Connection};
 /// to the peer exceeding the allowed number of failures or severing its connection with the node
 /// on its own.
 #[async_trait::async_trait]
-pub trait Disconnect: Pea2Pea
+pub trait Disconnect: P2P
 where
     Self: Clone + Send + Sync + 'static,
 {

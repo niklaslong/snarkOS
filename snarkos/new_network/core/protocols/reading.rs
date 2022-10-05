@@ -32,7 +32,7 @@ use crate::new_network::{
     core::{
         connections::ConnectionSide,
         protocols::{ProtocolHandler, ReturnableConnection},
-        Pea2Pea,
+        P2P,
     },
     node::Node,
 };
@@ -45,7 +45,7 @@ use crate::new_network::{
 /// [`Reading::process_message`]. The configured fatal IO errors result in an immediate disconnect
 /// (in order to e.g. avoid accidentally reading "borked" messages).
 #[async_trait]
-pub trait Reading: Pea2Pea
+pub trait Reading: P2P
 where
     Self: Clone + Send + Sync + 'static,
 {

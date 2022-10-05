@@ -27,14 +27,14 @@ use tracing::*;
 use crate::new_network::core::{
     connections::Connection,
     protocols::{ProtocolHandler, ReturnableConnection},
-    Pea2Pea,
+    P2P,
 };
 
 /// Can be used to specify and enable network handshakes. Upon establishing a connection, both sides will
 /// need to adhere to the specified handshake rules in order to finalize the connection and be able to send
 /// or receive any messages.
 #[async_trait::async_trait]
-pub trait Handshake: Pea2Pea
+pub trait Handshake: P2P
 where
     Self: Clone + Send + Sync + 'static,
 {

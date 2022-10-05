@@ -19,18 +19,23 @@ use std::{collections::HashMap, net::SocketAddr, ops::Deref, sync::Arc};
 use kadmium::tcp::SyncTcpRouter;
 use parking_lot::RwLock;
 
-use crate::new_network::core::{
-    codec::NoiseState,
-    connections::ConnectionSide,
-    network::{ConnectionMeta, Network},
-    Pea2Pea,
+use crate::{
+    new_network::core::{
+        codec::NoiseState,
+        connections::ConnectionSide,
+        network::{ConnectionMeta, Network},
+        P2P,
+    },
+    Ledger,
 };
+
+type CurrentNetwork = snarkvm::prelude::Testnet3;
 
 /// The central object responsible for handling connections.
 #[derive(Clone)]
 pub struct Node {
     pub network: Arc<Network>,
-    // ledger: Arc<Ledger<N>>,
+    ledger: Arc<Ledger<CurrentNetwork>>,
 
     // TODO: consolidate into network.
     pub router: SyncTcpRouter,
@@ -46,9 +51,9 @@ impl Deref for Node {
     }
 }
 
-impl Pea2Pea for Node {
+impl P2P for Node {
     fn node(&self) -> &Node {
-        &self
+        self
     }
 }
 

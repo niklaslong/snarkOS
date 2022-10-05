@@ -29,7 +29,7 @@ use tracing::*;
 use crate::new_network::core::{
     connections::{Connection, ConnectionSide},
     protocols::{Protocol, ProtocolHandler, ReturnableConnection},
-    Pea2Pea,
+    P2P,
 };
 #[cfg(doc)]
 use crate::new_network::core::{protocols::Handshake, Config};
@@ -41,7 +41,7 @@ type WritingSenders = Arc<RwLock<HashMap<SocketAddr, mpsc::Sender<WrappedMessage
 /// Can be used to specify and enable writing, i.e. sending outbound messages. If the [`Handshake`]
 /// protocol is enabled too, it goes into force only after the handshake has been concluded.
 #[async_trait]
-pub trait Writing: Pea2Pea
+pub trait Writing: P2P
 where
     Self: Clone + Send + Sync + 'static,
 {

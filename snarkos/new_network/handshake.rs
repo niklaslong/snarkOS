@@ -34,7 +34,7 @@ use crate::new_network::{
         codec::{MessageOrBytes, NoiseCodec, NoiseState},
         connections::{Connection, ConnectionSide},
         protocols::Handshake,
-        Pea2Pea,
+        P2P,
     },
     node::Node,
 };

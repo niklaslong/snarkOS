@@ -25,7 +25,7 @@ mod stats;
 use crate::new_network::node::Node;
 
 /// A trait for objects containing a [`Node`]; it is required to implement protocols.
-pub trait Pea2Pea {
+pub trait P2P {
     /// Returns a clonable reference to the node.
     fn node(&self) -> &Node;
 }
