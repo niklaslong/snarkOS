@@ -24,7 +24,8 @@ use std::{
     },
 };
 
-use parking_lot::Mutex;
+use kadmium::{tcp::SyncTcpRouter, Id};
+use parking_lot::{Mutex, RwLock};
 use tokio::{
     io::split,
     net::{TcpListener, TcpStream},
@@ -44,8 +45,6 @@ use crate::new_network::{
     },
     node::Node,
 };
-use kadmium::{tcp::SyncTcpRouter, Id};
-use parking_lot::RwLock;
 
 macro_rules! enable_protocol {
     ($handler_type: ident, $node:expr, $conn: expr) => {

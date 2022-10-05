@@ -21,17 +21,18 @@ extern crate tracing;
 
 pub mod helpers;
 
-use crate::helpers::{NodeType, RawStatus, Resources};
-use snarkvm::prelude::Network;
-
 use core::{fmt::Debug, marker::PhantomData};
-use once_cell::sync::OnceCell;
-use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{
     collections::HashSet,
     net::SocketAddr,
     sync::{atomic::AtomicBool, Arc},
 };
+
+use once_cell::sync::OnceCell;
+use rayon::{ThreadPool, ThreadPoolBuilder};
+use snarkvm::prelude::Network;
+
+use crate::helpers::{NodeType, RawStatus, Resources};
 
 #[rustfmt::skip]
 pub trait Environment: 'static + Clone + Debug + Send + Sync {

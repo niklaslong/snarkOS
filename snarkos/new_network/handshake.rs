@@ -16,10 +16,6 @@
 
 use std::{io, net::SocketAddr};
 
-use crate::new_network::{
-    core::connections::{Connection, ConnectionSide},
-    node::Node,
-};
 use bytes::Bytes;
 use futures_util::{sink::SinkExt, TryStreamExt};
 use kadmium::{
@@ -33,10 +29,14 @@ use tokio::{
 use tokio_util::codec::{Framed, FramedParts};
 use tracing::*;
 
-use crate::new_network::core::{
-    codec::{MessageOrBytes, NoiseCodec, NoiseState},
-    protocols::Handshake,
-    Pea2Pea,
+use crate::new_network::{
+    core::{
+        codec::{MessageOrBytes, NoiseCodec, NoiseState},
+        connections::{Connection, ConnectionSide},
+        protocols::Handshake,
+        Pea2Pea,
+    },
+    node::Node,
 };
 
 #[async_trait::async_trait]

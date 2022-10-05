@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use snarkos::{logger::initialize_logger, CLI};
-
 use anyhow::Result;
 use clap::Parser;
+use snarkos::{logger::initialize_logger, CLI};
 use tokio::runtime;
 
 fn main() -> Result<()> {

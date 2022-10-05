@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use snarkvm::prelude::*;
+use std::marker::PhantomData;
 
 use ::bytes::{Buf, BufMut, Bytes, BytesMut};
-use std::marker::PhantomData;
+use snarkvm::prelude::*;
 use tokio::task;
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
 

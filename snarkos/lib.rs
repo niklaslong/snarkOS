@@ -47,28 +47,25 @@ mod store;
 pub use store::*;
 
 mod updater;
-pub use updater::*;
-
 pub use snarkos_environment as environment;
-
 #[cfg(feature = "rpc")]
 pub use snarkos_rpc as rpc;
-
 pub use snarkvm::prelude::{Address, Network};
+pub use updater::*;
 
 pub mod prelude {
-    pub use crate::environment::*;
+    pub use snarkvm::prelude::{Address, Network};
 
+    pub use crate::environment::*;
     #[cfg(feature = "rpc")]
     pub use crate::rpc::*;
-
-    pub use snarkvm::prelude::{Address, Network};
 }
+
+use std::time::Duration;
 
 use anyhow::anyhow;
 use backoff::{future::retry, ExponentialBackoff};
 use futures::Future;
-use std::time::Duration;
 
 pub(crate) async fn handle_dispatch_error<'a, T, F>(func: impl Fn() -> F + 'a) -> anyhow::Result<T>
 where

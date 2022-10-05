@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use snarkvm::{console::types::Field, prelude::*};
-
 use ::rand::thread_rng;
+use snarkvm::{console::types::Field, prelude::*};
 
 /// A helper struct for an Aleo account.
 #[derive(Debug)]

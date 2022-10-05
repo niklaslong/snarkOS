@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     sync::{
@@ -22,6 +21,8 @@ use std::{
         Arc,
     },
 };
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[repr(u8)]

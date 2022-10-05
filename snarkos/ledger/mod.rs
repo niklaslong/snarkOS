@@ -14,19 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{handle_dispatch_error, BlockDB, Data, ProgramDB};
-use snarkvm::prelude::*;
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
 use colored::Colorize;
 use futures::StreamExt;
 use indexmap::IndexMap;
 use parking_lot::RwLock;
-use std::{
-    net::{IpAddr, SocketAddr},
-    sync::Arc,
-};
+use snarkvm::prelude::*;
 use tokio::task;
 use warp::{reply, Filter, Rejection, Reply};
+
+use crate::{handle_dispatch_error, BlockDB, Data, ProgramDB};
 
 pub(crate) type InternalLedger<N> = snarkvm::prelude::Ledger<N, BlockDB<N>, ProgramDB<N>>;
 // pub(crate) type InternalLedger<N> = snarkvm::prelude::Ledger<N, BlockMemory<N>, ProgramMemory<N>>;

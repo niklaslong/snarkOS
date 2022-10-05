@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
+use indexmap::{IndexMap, IndexSet};
+use snarkvm::prelude::*;
+
 use crate::store::{
     rocksdb::{self, DataMap, Database},
     DataID,
 };
-use snarkvm::prelude::*;
-
-use indexmap::{IndexMap, IndexSet};
 
 /// A RocksDB program storage.
 #[derive(Clone)]

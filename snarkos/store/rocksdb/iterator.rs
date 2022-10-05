@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use super::*;
-
 use std::borrow::Cow;
+
+use super::*;
 
 /// An iterator over all key-value pairs in a data map.
 pub struct Iter<

@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use super::*;
+use core::{fmt, fmt::Debug, hash::Hash};
+use std::{borrow::Cow, sync::atomic::Ordering};
 
 use snarkvm::compiler::{Map, MapRead};
 
-use core::{fmt, fmt::Debug, hash::Hash};
-use std::{borrow::Cow, sync::atomic::Ordering};
+use super::*;
 
 #[derive(Clone)]
 pub struct DataMap<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> {

@@ -22,6 +22,7 @@ use std::{
     },
     time::Duration,
 };
+
 use tokio::{
     sync::{mpsc, oneshot},
     time::sleep,
@@ -237,9 +238,11 @@ impl Resources {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::thread;
+
     use tokio::sync::oneshot;
+
+    use super::*;
 
     struct DropChecker(usize);
 

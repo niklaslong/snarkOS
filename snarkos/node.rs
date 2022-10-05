@@ -14,15 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::CLI;
+use core::marker::PhantomData;
+use std::{net::SocketAddr, sync::Arc};
 
-use crate::{connect_to_leader, handle_listener, handle_peer, request_genesis_block, send_pings, Account, Ledger};
+use anyhow::{bail, Result};
 use snarkos_environment::{helpers::Status, Environment};
 use snarkvm::prelude::Network;
 
-use anyhow::{bail, Result};
-use core::marker::PhantomData;
-use std::{net::SocketAddr, sync::Arc};
+use crate::{connect_to_leader, handle_listener, handle_peer, request_genesis_block, send_pings, Account, Ledger, CLI};
 
 #[derive(Clone)]
 pub struct Node<N: Network, E: Environment> {

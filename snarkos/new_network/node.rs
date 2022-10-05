@@ -16,14 +16,15 @@
 
 use std::{collections::HashMap, net::SocketAddr, ops::Deref, sync::Arc};
 
+use kadmium::tcp::SyncTcpRouter;
+use parking_lot::RwLock;
+
 use crate::new_network::core::{
     codec::NoiseState,
     connections::ConnectionSide,
     network::{ConnectionMeta, Network},
     Pea2Pea,
 };
-use kadmium::tcp::SyncTcpRouter;
-use parking_lot::RwLock;
 
 /// The central object responsible for handling connections.
 #[derive(Clone)]

@@ -14,14 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{Account, Node, Updater};
-use snarkos_environment::{helpers::NodeType, Client, Environment};
-use snarkvm::prelude::{Address, Network, PrivateKey, ViewKey};
+use std::{fmt::Write, net::SocketAddr, str::FromStr};
 
 use anyhow::{bail, ensure, Result};
 use clap::Parser;
 use colored::*;
-use std::{fmt::Write, net::SocketAddr, str::FromStr};
+use snarkos_environment::{helpers::NodeType, Client, Environment};
+use snarkvm::prelude::{Address, Network, PrivateKey, ViewKey};
+
+use crate::{Account, Node, Updater};
 
 #[derive(Debug, Parser)]
 #[clap(name = "snarkos", author = "The Aleo Team <hello@aleo.org>")]

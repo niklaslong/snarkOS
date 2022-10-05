@@ -23,19 +23,20 @@ use iterator::*;
 #[cfg(test)]
 mod tests;
 
-use crate::store::DataID;
-
-use anyhow::{bail, Result};
 use core::{fmt::Debug, hash::Hash};
-use once_cell::sync::OnceCell;
-use parking_lot::Mutex;
-use serde::{de::DeserializeOwned, Serialize};
 use std::{
     borrow::Borrow,
     marker::PhantomData,
     ops::Deref,
     sync::{atomic::AtomicBool, Arc},
 };
+
+use anyhow::{bail, Result};
+use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
+use serde::{de::DeserializeOwned, Serialize};
+
+use crate::store::DataID;
 
 pub const PREFIX_LEN: usize = 4; // N::ID (u16) + DataID (u16)
 

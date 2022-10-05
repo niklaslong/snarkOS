@@ -15,23 +15,22 @@
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
 mod message;
-pub use message::*;
-
-use crate::Ledger;
-
-use snarkvm::prelude::*;
-
-use futures::{SinkExt, StreamExt};
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
 };
+
+use futures::{SinkExt, StreamExt};
+pub use message::*;
+use snarkvm::prelude::*;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::mpsc,
     task,
 };
 use tokio_util::codec::Framed;
+
+use crate::Ledger;
 
 pub type Sender<N> = mpsc::Sender<Message<N>>;
 pub type Receiver<N> = mpsc::Receiver<Message<N>>;

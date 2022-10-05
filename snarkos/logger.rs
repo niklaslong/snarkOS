@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use snarkvm::prelude::*;
+use std::fmt::Write;
 
 use colored::*;
-use std::fmt::Write;
+use snarkvm::prelude::*;
 
 pub fn initialize_logger(verbosity: u8) {
     match verbosity {

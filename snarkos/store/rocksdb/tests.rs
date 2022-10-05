@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::store::{
-    rocksdb::{DataMap, RocksDB},
-    DataID,
-};
+use std::borrow::Cow;
+
+use serial_test::serial;
 use snarkvm::{
     compiler::{Map, MapRead},
     console::{
@@ -27,8 +26,10 @@ use snarkvm::{
     utilities::{TestRng, Uniform},
 };
 
-use serial_test::serial;
-use std::borrow::Cow;
+use crate::store::{
+    rocksdb::{DataMap, RocksDB},
+    DataID,
+};
 
 type TestMap = DataMap<u32, String>;
 

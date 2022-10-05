@@ -16,6 +16,9 @@
 
 use std::{io, net::SocketAddr};
 
+use kadmium::message::Message;
+use tracing::*;
+
 use crate::new_network::{
     core::{
         codec::{MessageOrBytes, NoiseCodec},
@@ -24,10 +27,6 @@ use crate::new_network::{
     },
     node::Node,
 };
-
-use kadmium::message::Message;
-
-use tracing::*;
 
 impl Node {
     async fn process_message(&self, _source: SocketAddr, _message: Message) -> io::Result<()> {

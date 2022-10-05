@@ -23,6 +23,15 @@ pub const MAXIMUM_QUADRATIC_BLOCK_LOCATORS: u32 = 32;
 /// The total maximum number of block locators.
 pub const MAXIMUM_BLOCK_LOCATORS: u32 = MAXIMUM_LINEAR_BLOCK_LOCATORS.saturating_add(MAXIMUM_QUADRATIC_BLOCK_LOCATORS);
 
+use std::{
+    collections::BTreeMap,
+    io::{Error, ErrorKind},
+    ops::Deref,
+};
+
+use anyhow::{bail, Result};
+use rayon::{iter::IntoParallelIterator, prelude::*};
+use serde::{de, ser, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use snarkvm::{
     compiler::Header,
     prelude::Network,
@@ -35,15 +44,6 @@ use snarkvm::{
         ToBytes,
         ToBytesSerializer,
     },
-};
-
-use anyhow::{bail, Result};
-use rayon::{iter::IntoParallelIterator, prelude::*};
-use serde::{de, ser, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-use std::{
-    collections::BTreeMap,
-    io::{Error, ErrorKind},
-    ops::Deref,
 };
 
 ///

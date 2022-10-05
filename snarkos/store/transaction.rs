@@ -14,12 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
+use snarkvm::prelude::*;
+
 use crate::store::{
     rocksdb::{self, DataMap, Database},
     DataID,
     TransitionDB,
 };
-use snarkvm::prelude::*;
 
 /// A database transaction storage.
 #[derive(Clone)]
