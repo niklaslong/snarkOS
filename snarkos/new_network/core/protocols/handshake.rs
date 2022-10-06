@@ -17,7 +17,6 @@
 use std::{io, time::Duration};
 
 use tokio::{
-    io::{split, AsyncRead, AsyncWrite},
     net::TcpStream,
     sync::{mpsc, oneshot},
     time::timeout,
@@ -114,9 +113,9 @@ where
 
     /// This method only needs to be called if [`Handshake::take_stream`] had been called before; it is used to
     /// return a (potentially modified) stream back to the applicable connection.
-    fn return_stream<T: AsyncRead + AsyncWrite + Send + Sync + 'static>(&self, conn: &mut Connection, stream: T) {
-        let (reader, writer) = split(stream);
-        conn.reader = Some(Box::new(reader));
-        conn.writer = Some(Box::new(writer));
+    fn return_stream(&self, conn: &mut Connection, stream: TcpStream) {
+        let (reader, writer) = stream.into_split();
+        conn.reader = Some(reader);
+        conn.writer = Some(writer);
     }
 }

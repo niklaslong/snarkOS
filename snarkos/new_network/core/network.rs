@@ -26,7 +26,6 @@ use std::{
 
 use parking_lot::Mutex;
 use tokio::{
-    io::split,
     net::{TcpListener, TcpStream},
     sync::oneshot,
     task::JoinHandle,
@@ -238,9 +237,9 @@ impl Network {
 
         // split the stream after the handshake (if not done before)
         if let Some(stream) = conn.stream.take() {
-            let (reader, writer) = split(stream);
-            conn.reader = Some(Box::new(reader));
-            conn.writer = Some(Box::new(writer));
+            let (reader, writer) = stream.into_split();
+            conn.reader = Some(reader);
+            conn.writer = Some(writer);
         }
 
         let conn = enable_protocol!(reading, self, conn);

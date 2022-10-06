@@ -20,8 +20,10 @@ use std::{collections::HashMap, net::SocketAddr, ops::Not};
 
 use parking_lot::RwLock;
 use tokio::{
-    io::{AsyncRead, AsyncWrite},
-    net::TcpStream,
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream,
+    },
     sync::oneshot,
     task::JoinHandle,
 };
@@ -74,14 +76,6 @@ impl Not for ConnectionSide {
     }
 }
 
-/// A helper trait to facilitate trait-objectification of connection readers.
-pub(crate) trait AR: AsyncRead + Unpin + Send + Sync {}
-impl<T: AsyncRead + Unpin + Send + Sync> AR for T {}
-
-/// A helper trait to facilitate trait-objectification of connection writers.
-pub(crate) trait AW: AsyncWrite + Unpin + Send + Sync {}
-impl<T: AsyncWrite + Unpin + Send + Sync> AW for T {}
-
 /// Created for each active connection; used by the protocols to obtain a handle for
 /// reading and writing, and keeps track of tasks that have been spawned for the purposes
 /// of the connection.
@@ -93,9 +87,9 @@ pub struct Connection {
     /// Available and used only in the [`Handshake`] protocol.
     pub(crate) stream: Option<TcpStream>,
     /// Available and used only in the [`Reading`] protocol.
-    pub(crate) reader: Option<Box<dyn AR>>,
+    pub(crate) reader: Option<OwnedReadHalf>,
     /// Available and used only in the [`Writing`] protocol.
-    pub(crate) writer: Option<Box<dyn AW>>,
+    pub(crate) writer: Option<OwnedWriteHalf>,
     /// Used to notify the [`Reading`] protocol that the connection is fully ready.
     pub(crate) readiness_notifier: Option<oneshot::Sender<()>>,
     /// Handles to tasks spawned for the connection.
