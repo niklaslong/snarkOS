@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{any::Any, collections::HashMap, io, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, io, net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
 use futures_util::sink::SinkExt;
@@ -27,6 +27,7 @@ use tokio_util::codec::{Encoder, FramedWrite};
 use tracing::*;
 
 use crate::new_network::core::{
+    codec::MessageOrBytes,
     connections::{Connection, ConnectionSide},
     protocols::{Protocol, ProtocolHandler, ReturnableConnection},
     P2P,
@@ -52,13 +53,8 @@ where
     /// The default value is 64.
     const MESSAGE_QUEUE_DEPTH: usize = 64;
 
-    /// The type of the outbound messages; unless their serialization is expensive and the message
-    /// is broadcasted (in which case it would get serialized multiple times), serialization should
-    /// be done in the implementation of [`Self::Codec`].
-    type Message: Send;
-
     /// The user-supplied [`Encoder`] used to write outbound messages to the target stream.
-    type Codec: Encoder<Self::Message, Error = io::Error> + Send;
+    type Codec: Encoder<MessageOrBytes, Error = io::Error> + Send;
 
     /// Prepares the node to send messages.
     async fn enable_writing(&self) {
@@ -111,12 +107,12 @@ where
     /// - [`io::ErrorKind::NotConnected`] if the node is not connected to the provided address
     /// - [`io::ErrorKind::Other`] if the outbound message queue for this address is full
     /// - [`io::ErrorKind::Unsupported`] if [`Writing::enable_writing`] hadn't been called yet
-    fn unicast(&self, addr: SocketAddr, message: Self::Message) -> io::Result<oneshot::Receiver<io::Result<()>>> {
+    fn unicast(&self, addr: SocketAddr, message: MessageOrBytes) -> io::Result<oneshot::Receiver<io::Result<()>>> {
         // access the protocol handler
         if let Some(handler) = self.node().protocols.writing.get() {
             // find the message sender for the given address
             if let Some(sender) = handler.senders.read().get(&addr).cloned() {
-                let (msg, delivery) = WrappedMessage::new(Box::new(message));
+                let (msg, delivery) = WrappedMessage::new(message);
                 sender
                     .try_send(msg)
                     .map_err(|e| {
@@ -141,15 +137,12 @@ where
     /// # Errors
     ///
     /// Returns [`io::ErrorKind::Unsupported`] if [`Writing::enable_writing`] hadn't been called yet.
-    fn broadcast(&self, message: Self::Message) -> io::Result<()>
-    where
-        Self::Message: Clone,
-    {
+    fn broadcast(&self, message: MessageOrBytes) -> io::Result<()> {
         // access the protocol handler
         if let Some(handler) = self.node().protocols.writing.get() {
             let senders = handler.senders.read().clone();
             for (addr, message_sender) in senders {
-                let (msg, _delivery) = WrappedMessage::new(Box::new(message.clone()));
+                let (msg, _delivery) = WrappedMessage::new(message.clone());
                 let _ = message_sender.try_send(msg).map_err(|e| {
                     error!(parent: self.node().span(), "can't send a message to {}: {}", addr, e);
                     self.node().stats().register_failure();
@@ -169,9 +162,9 @@ trait WritingInternal: Writing {
     /// Writes the given message to the network stream and returns the number of written bytes.
     async fn write_to_stream<W: AsyncWrite + Unpin + Send>(
         &self,
-        message: Self::Message,
+        message: MessageOrBytes,
         writer: &mut FramedWrite<W, Self::Codec>,
-    ) -> Result<usize, <Self::Codec as Encoder<Self::Message>>::Error>;
+    ) -> Result<usize, <Self::Codec as Encoder<MessageOrBytes>>::Error>;
 
     /// Applies the [`Writing`] protocol to a single connection.
     async fn handle_new_connection(&self, (conn, conn_returner): ReturnableConnection, conn_senders: &WritingSenders);
@@ -181,9 +174,9 @@ trait WritingInternal: Writing {
 impl<W: Writing> WritingInternal for W {
     async fn write_to_stream<A: AsyncWrite + Unpin + Send>(
         &self,
-        message: Self::Message,
+        message: MessageOrBytes,
         writer: &mut FramedWrite<A, Self::Codec>,
-    ) -> Result<usize, <Self::Codec as Encoder<Self::Message>>::Error> {
+    ) -> Result<usize, <Self::Codec as Encoder<MessageOrBytes>>::Error> {
         writer.feed(message).await?;
         let len = writer.write_buffer().len();
         writer.flush().await?;
@@ -222,9 +215,9 @@ impl<W: Writing> WritingInternal for W {
             let _auto_cleanup = auto_cleanup;
 
             while let Some(wrapped_msg) = outbound_message_receiver.recv().await {
-                let msg = wrapped_msg.msg.downcast().unwrap();
+                let msg = wrapped_msg.msg;
 
-                match self_clone.write_to_stream(*msg, &mut framed).await {
+                match self_clone.write_to_stream(msg, &mut framed).await {
                     Ok(len) => {
                         let _ = wrapped_msg.delivery_notification.send(Ok(()));
                         node.known_peers().register_sent_message(addr, len);
@@ -256,12 +249,12 @@ impl<W: Writing> WritingInternal for W {
 
 /// Used to queue messages for delivery.
 struct WrappedMessage {
-    msg: Box<dyn Any + Send>,
+    msg: MessageOrBytes,
     delivery_notification: oneshot::Sender<io::Result<()>>,
 }
 
 impl WrappedMessage {
-    fn new(msg: Box<dyn Any + Send>) -> (Self, oneshot::Receiver<io::Result<()>>) {
+    fn new(msg: MessageOrBytes) -> (Self, oneshot::Receiver<io::Result<()>>) {
         let (tx, rx) = oneshot::channel();
         let wrapped_msg = Self {
             msg,

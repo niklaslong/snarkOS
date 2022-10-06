@@ -30,6 +30,7 @@ use tracing::*;
 use crate::new_network::core::{protocols::Handshake, Config};
 use crate::new_network::{
     core::{
+        codec::MessageOrBytes,
         connections::ConnectionSide,
         protocols::{ProtocolHandler, ReturnableConnection},
         P2P,
@@ -62,11 +63,8 @@ where
     /// The default value is 64KiB.
     const INITIAL_BUFFER_SIZE: usize = 64 * 1024;
 
-    /// The final (deserialized) type of inbound messages.
-    type Message: Send;
-
     /// The user-supplied [`Decoder`] used to interpret inbound messages.
-    type Codec: Decoder<Item = Self::Message, Error = io::Error> + Send;
+    type Codec: Decoder<Item = MessageOrBytes, Error = io::Error> + Send;
 
     /// Prepares the node to receive messages.
     async fn enable_reading(&self) {
@@ -102,7 +100,7 @@ where
     fn codec(&self, addr: SocketAddr, side: ConnectionSide) -> Self::Codec;
 
     /// Processes an inbound message. Can be used to update state, send replies etc.
-    async fn process_message(&self, source: SocketAddr, message: Self::Message) -> io::Result<()>;
+    async fn process_message(&self, source: SocketAddr, message: MessageOrBytes) -> io::Result<()>;
 }
 
 /// This trait is used to restrict access to methods that would otherwise be public in [`Reading`].

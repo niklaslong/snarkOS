@@ -37,14 +37,13 @@ impl Node {
 #[async_trait::async_trait]
 impl Reading for Node {
     type Codec = NoiseCodec;
-    type Message = MessageOrBytes;
 
     fn codec(&self, addr: SocketAddr, _side: ConnectionSide) -> Self::Codec {
         let noise_state = self.noise_state(addr).unwrap();
         NoiseCodec::new(noise_state)
     }
 
-    async fn process_message(&self, source: SocketAddr, message: Self::Message) -> io::Result<()> {
+    async fn process_message(&self, source: SocketAddr, message: MessageOrBytes) -> io::Result<()> {
         let message = match message {
             MessageOrBytes::Message(message) => message,
             // Ignore plain bytes after the handshake.
@@ -59,7 +58,6 @@ impl Reading for Node {
 
 impl Writing for Node {
     type Codec = NoiseCodec;
-    type Message = MessageOrBytes;
 
     fn codec(&self, addr: SocketAddr, _side: ConnectionSide) -> Self::Codec {
         let noise_state = self.noise_state(addr).unwrap();
