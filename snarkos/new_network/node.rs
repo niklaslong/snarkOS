@@ -29,7 +29,7 @@ use crate::{
     Ledger,
 };
 
-type CurrentNetwork = snarkvm::prelude::Testnet3;
+pub type CurrentNetwork = snarkvm::prelude::Testnet3;
 
 /// The central object responsible for handling connections.
 #[derive(Clone)]

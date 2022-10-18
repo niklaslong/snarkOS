@@ -16,21 +16,50 @@
 
 use std::{io, net::SocketAddr};
 
+use bytes::BytesMut;
 use kadmium::message::Message;
+use tokio_util::codec::Decoder;
 use tracing::*;
 
-use crate::new_network::{
-    core::{
-        codec::{MessageOrBytes, NoiseCodec},
-        connections::ConnectionSide,
-        protocols::{Disconnect, Reading, Writing},
+use crate::{
+    new_network::{
+        core::{
+            codec::{MessageOrBytes, NoiseCodec},
+            connections::ConnectionSide,
+            protocols::{Disconnect, Reading, Writing},
+        },
+        node::{CurrentNetwork, Node},
     },
-    node::Node,
+    Message as SnarkOSMessage,
+    MessageCodec as SnarkOSCodec,
 };
 
 impl Node {
-    async fn process_message(&self, _source: SocketAddr, _message: Message) -> io::Result<()> {
-        todo!()
+    async fn process_message(&self, source: SocketAddr, message: Message) -> io::Result<()> {
+        if let Message::Chunk(chunk) = message {
+            // Decode the snarkOS messages.
+            let mut data = BytesMut::zeroed(chunk.data.len());
+            data.copy_from_slice(&chunk.data);
+
+            let mut codec = SnarkOSCodec::<CurrentNetwork>::default();
+            let message = codec.decode(&mut data)?;
+
+            match message {
+                Some(SnarkOSMessage::Ping) => {
+                    info!(parent: self.span(), "got PING from {source}, sending PONG")
+                }
+
+                Some(SnarkOSMessage::Pong(pong_data)) => {
+                    info!(parent: self.span(), "got PONG from {source}")
+                }
+
+                _ => {
+                    // TODO
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
