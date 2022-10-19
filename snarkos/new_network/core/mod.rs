@@ -15,7 +15,7 @@
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
 pub mod codec;
-mod config;
+pub mod config;
 pub mod connections;
 mod known_peers;
 pub mod network;

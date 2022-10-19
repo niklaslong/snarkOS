@@ -17,4 +17,4 @@
 mod core;
 mod handshake;
 mod messaging;
-mod node;
+pub mod node;

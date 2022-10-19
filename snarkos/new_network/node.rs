@@ -16,17 +16,23 @@
 
 use std::{collections::HashMap, net::SocketAddr, ops::Deref, sync::Arc};
 
-use kadmium::tcp::SyncTcpRouter;
+use anyhow::Result;
+use kadmium::{tcp::SyncTcpRouter, Id};
 use parking_lot::RwLock;
 
 use crate::{
     new_network::core::{
         codec::NoiseState,
+        config::Config,
         connections::ConnectionSide,
         network::{ConnectionMeta, Network},
+        protocols::{Disconnect, Handshake, Reading, Writing},
         P2P,
     },
+    request_genesis_block,
+    Account,
     Ledger,
+    CLI,
 };
 
 pub type CurrentNetwork = snarkvm::prelude::Testnet3;
@@ -58,6 +64,52 @@ impl P2P for Node {
 }
 
 impl Node {
+    pub async fn new(cli: &CLI, account: Account<CurrentNetwork>) -> Result<Self> {
+        let config = Config {
+            name: None,
+            listener_ip: Some(cli.node.ip()),
+            desired_listening_port: Some(cli.node.port()),
+            allow_random_port: false,
+            max_connections: 20,
+            ..Default::default()
+        };
+
+        let ledger = match cli.dev {
+            None => {
+                // Initialize the ledger.
+                let ledger = Ledger::<CurrentNetwork>::load(*account.private_key(), cli.dev)?;
+                // Sync the ledger with the network.
+                ledger.initial_sync_with_network(cli.beacon_addr.ip()).await?;
+
+                ledger
+            }
+            Some(_) => {
+                // TODO (raychu86): Formalize this process via network messages.
+                //  Currently this operations pulls from the leader's server.
+                // Request genesis block from the beacon leader.
+                let genesis_block = request_genesis_block::<CurrentNetwork>(cli.beacon_addr.ip()).await?;
+
+                // Initialize the ledger from the provided genesis block.
+                Ledger::<CurrentNetwork>::new_with_genesis(*account.private_key(), genesis_block, cli.dev)?
+            }
+        };
+
+        let network = Network::new(config).await?;
+        let node = Self {
+            network,
+            ledger,
+            router: SyncTcpRouter::new(Id::rand(), 100, 25),
+            connection_meta: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        node.enable_handshake().await;
+        node.enable_reading().await;
+        node.enable_writing().await;
+        node.enable_disconnect().await;
+
+        Ok(node)
+    }
+
     pub fn router(&self) -> &SyncTcpRouter {
         &self.router
     }

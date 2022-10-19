@@ -46,7 +46,9 @@ impl Node {
 
             match message {
                 Some(SnarkOSMessage::Ping) => {
-                    info!(parent: self.span(), "got PING from {source}, sending PONG")
+                    info!(parent: self.span(), "got PING from {source}, sending PONG");
+
+                    // TODO: send PONG.
                 }
 
                 Some(SnarkOSMessage::Pong(pong_data)) => {
@@ -54,7 +56,7 @@ impl Node {
                 }
 
                 _ => {
-                    // TODO
+                    // TODO: handle no data.
                 }
             }
         }

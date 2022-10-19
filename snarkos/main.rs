@@ -16,25 +16,62 @@
 
 use anyhow::Result;
 use clap::Parser;
-use snarkos::{logger::initialize_logger, CLI};
+use snarkos::{logger::initialize_logger, Account, CLI};
 use tokio::runtime;
 
-fn main() -> Result<()> {
-    if num_cpus::get() < 16 {
-        eprintln!("\nWARNING - Your machine must have at least 16-cores to run a node.\n");
-    }
+// fn main() -> Result<()> {
+//     if num_cpus::get() < 16 {
+//         eprintln!("\nWARNING - Your machine must have at least 16-cores to run a node.\n");
+//     }
+//
+//     // Parse the provided arguments.
+//     let cli = CLI::parse();
+//
+//     // Start logging.
+//     initialize_logger(cli.verbosity);
+//
+//     let (num_tokio_worker_threads, max_tokio_blocking_threads) = if !cli.beacon {
+//         ((num_cpus::get() / 8 * 2).max(1), num_cpus::get())
+//     } else {
+//         (num_cpus::get(), 512) // 512 is tokio's current default
+//     };
+//
+//     // Initialize the runtime configuration.
+//     let runtime = runtime::Builder::new_multi_thread()
+//         .enable_all()
+//         .thread_stack_size(8 * 1024 * 1024)
+//         .worker_threads(num_tokio_worker_threads)
+//         .max_blocking_threads(max_tokio_blocking_threads)
+//         .build()?;
+//
+//     let num_rayon_cores_global = if !cli.beacon {
+//         (num_cpus::get() / 8 * 5).max(1)
+//     } else {
+//         num_cpus::get()
+//     };
+//
+//     // Initialize the parallelization parameters.
+//     rayon::ThreadPoolBuilder::new()
+//         .stack_size(8 * 1024 * 1024)
+//         .num_threads(num_rayon_cores_global)
+//         .build_global()
+//         .unwrap();
+//
+//     runtime.block_on(async move {
+//         cli.start().await.expect("Failed to start the node");
+//     });
+//
+//     Ok(())
+// }
 
-    // Parse the provided arguments.
+fn main() -> Result<()> {
     let cli = CLI::parse();
 
     // Start logging.
     initialize_logger(cli.verbosity);
 
-    let (num_tokio_worker_threads, max_tokio_blocking_threads) = if !cli.beacon {
-        ((num_cpus::get() / 8 * 2).max(1), num_cpus::get())
-    } else {
-        (num_cpus::get(), 512) // 512 is tokio's current default
-    };
+    let num_tokio_worker_threads = (num_cpus::get() / 8 * 2).max(1);
+    let max_tokio_blocking_threads = num_cpus::get();
 
     // Initialize the runtime configuration.
     let runtime = runtime::Builder::new_multi_thread()
@@ -44,11 +81,7 @@ fn main() -> Result<()> {
         .max_blocking_threads(max_tokio_blocking_threads)
         .build()?;
 
-    let num_rayon_cores_global = if !cli.beacon {
-        (num_cpus::get() / 8 * 5).max(1)
-    } else {
-        num_cpus::get()
-    };
+    let num_rayon_cores_global = (num_cpus::get() / 8 * 5).max(1);
 
     // Initialize the parallelization parameters.
     rayon::ThreadPoolBuilder::new()
@@ -57,8 +90,18 @@ fn main() -> Result<()> {
         .build_global()
         .unwrap();
 
+    let account = Account::sample()?;
     runtime.block_on(async move {
-        cli.start().await.expect("Failed to start the node");
+        // Print the welcome.
+        println!("{}", snarkos::logger::welcome_message());
+        // Print the Aleo address.
+        println!("Your Aleo address is {}.\n", account.address());
+
+        snarkos::new_network::node::Node::new(&cli, account)
+            .await
+            .expect("failed to start the node");
+
+        std::future::pending::<()>().await;
     });
 
     Ok(())
