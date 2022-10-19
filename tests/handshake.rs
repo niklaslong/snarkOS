@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
+#[allow(dead_code)]
 mod common;
+
+use std::time::Duration;
 
 use clap::Parser;
 use common::Client;
@@ -31,7 +34,7 @@ async fn handshake_responder_side() {
     let mut cli = CLI::try_parse_from(&["run"]).unwrap();
     cli.dev = Some(0);
 
-    initialize_logger(cli.verbosity);
+    // initialize_logger(cli.verbosity);
 
     let account = Account::<CurrentNetwork>::sample().unwrap();
     let node = Node::new(&cli, account).await.unwrap();
@@ -39,4 +42,21 @@ async fn handshake_responder_side() {
     let client = Client::new().await;
 
     assert!(client.node().connect(cli.node).await.is_ok());
+    assert_eq!(node.network.num_connected(), 1);
+}
+
+#[tokio::test]
+async fn handshake_initiator_side() {
+    let mut cli = CLI::try_parse_from(&["run"]).unwrap();
+    cli.dev = Some(0);
+
+    // initialize_logger(cli.verbosity);
+
+    let account = Account::<CurrentNetwork>::sample().unwrap();
+    let node = Node::new(&cli, account).await.unwrap();
+
+    let client = Client::new().await;
+
+    assert!(node.connect(client.node().listening_addr().unwrap()).await.is_ok());
+    assert_eq!(client.node().num_connected(), 1);
 }
