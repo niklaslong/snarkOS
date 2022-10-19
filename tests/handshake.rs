@@ -14,7 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with the snarkOS library. If not, see <https://www.gnu.org/licenses/>.
 
-pub mod core;
-pub mod handshake;
-mod messaging;
-pub mod node;
+mod common;
+
+use clap::Parser;
+use common::Client;
+use pea2pea::Pea2Pea;
+use snarkos::{
+    logger::initialize_logger,
+    new_network::node::{CurrentNetwork, Node},
+    Account,
+    CLI,
+};
+
+#[tokio::test]
+async fn handshake_responder_side() {
+    let mut cli = CLI::try_parse_from(&["run"]).unwrap();
+    cli.dev = Some(0);
+
+    initialize_logger(cli.verbosity);
+
+    let account = Account::<CurrentNetwork>::sample().unwrap();
+    let node = Node::new(&cli, account).await.unwrap();
+
+    let client = Client::new().await;
+
+    assert!(client.node().connect(cli.node).await.is_ok());
+}

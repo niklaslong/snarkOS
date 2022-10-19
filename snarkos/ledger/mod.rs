@@ -42,7 +42,7 @@ pub struct Ledger<N: Network> {
     /// The ledger.
     ledger: Arc<RwLock<InternalLedger<N>>>,
     /// The server.
-    server: InternalServer<N>,
+    server: Option<InternalServer<N>>,
     /// The peers.
     peers: Peers<N>,
     /// The account private key.
@@ -126,7 +126,8 @@ impl<N: Network> Ledger<N> {
         };
 
         // Initialize the server.
-        let server = InternalServer::<N>::start(ledger.clone(), Some(additional_routes), None)?;
+        // let server = InternalServer::<N>::start(ledger.clone(), Some(additional_routes), None)?;
+        let server = None;
 
         // Return the ledger.
         Ok(Arc::new(Self {
