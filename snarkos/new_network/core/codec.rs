@@ -16,11 +16,13 @@
 
 use std::{io, sync::Arc};
 
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use kadmium::{codec::MessageCodec, message::Message};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use snow::{HandshakeState, StatelessTransportState};
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
+
+use crate::{new_network::node::CurrentNetwork, MessageCodec as SnarkOSCodec};
 
 const MAX_MESSAGE_LEN: usize = 65535;
 
@@ -69,7 +71,7 @@ impl NoiseState {
 pub struct NoiseCodec {
     codec: LengthDelimitedCodec,
     kadmium_codec: MessageCodec,
-    // snarkos_codec: SnarkOSCodec<Testnet3>,
+    snarkos_codec: SnarkOSCodec<CurrentNetwork>,
     pub noise_state: NoiseState,
 }
 
@@ -78,6 +80,7 @@ impl NoiseCodec {
         Self {
             codec: LengthDelimitedCodec::new(),
             kadmium_codec: MessageCodec::new(),
+            snarkos_codec: SnarkOSCodec::default(),
             noise_state,
         }
     }
@@ -89,10 +92,13 @@ impl Encoder<MessageOrBytes> for NoiseCodec {
     fn encode(&mut self, message: MessageOrBytes, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let ciphertext = match (&mut self.noise_state, message) {
             (NoiseState::Handshake(ref mut noise), MessageOrBytes::Bytes(bytes)) => {
-                let mut buffer = [0u8; MAX_MESSAGE_LEN];
-                let len = noise.write_message(&bytes, &mut buffer).unwrap();
+                let mut buffer = [0u8; MAX_MESSAGE_LEN + 1];
+                let len = noise.write_message(&bytes, &mut buffer[1..]).unwrap();
 
-                buffer[..len].into()
+                // Set the message type flag.
+                buffer[0] = 0;
+
+                buffer[..len + 1].into()
             }
 
             (NoiseState::PostHandshake(ref mut noise), MessageOrBytes::Message(message)) => {
@@ -121,6 +127,9 @@ impl Encoder<MessageOrBytes> for NoiseCodec {
                     .collect();
 
                 let mut buffer = BytesMut::new();
+                // Set the message type flag.
+                buffer.put_u8(1);
+
                 for chunk in encrypted_chunks {
                     buffer.extend_from_slice(&chunk)
                 }
@@ -144,14 +153,15 @@ impl Decoder for NoiseCodec {
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         // Decode the ciphertext with the length-delimited codec.
-        let bytes = if let Some(bytes) = self.codec.decode(src)? {
-            bytes
+        let (flag, bytes) = if let Some(mut bytes) = self.codec.decode(src)? {
+            let flag = bytes.get_u8();
+            (flag, bytes)
         } else {
             return Ok(None);
         };
 
-        let msg = match self.noise_state {
-            NoiseState::Handshake(ref mut noise) => {
+        let msg = match (flag, &mut self.noise_state) {
+            (0, NoiseState::Handshake(ref mut noise)) => {
                 let mut buffer = [0u8; MAX_MESSAGE_LEN];
 
                 // Decrypt the ciphertext in handshake mode.
@@ -160,7 +170,7 @@ impl Decoder for NoiseCodec {
                 Some(MessageOrBytes::Bytes(Bytes::copy_from_slice(&buffer[..len])))
             }
 
-            NoiseState::PostHandshake(ref mut noise) => {
+            (1, NoiseState::PostHandshake(ref mut noise)) => {
                 let chunked_encrypted_msg: Vec<_> = bytes.chunks(MAX_MESSAGE_LEN).collect();
                 let num_chunks = chunked_encrypted_msg.len() as u64;
 
@@ -191,6 +201,8 @@ impl Decoder for NoiseCodec {
 
                 self.kadmium_codec.decode(&mut plaintext)?.map(MessageOrBytes::Message)
             }
+
+            _ => unimplemented!(),
         };
 
         Ok(msg)
