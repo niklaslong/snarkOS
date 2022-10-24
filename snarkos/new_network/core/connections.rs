@@ -29,7 +29,7 @@ use tokio::{
 };
 
 #[cfg(doc)]
-use crate::protocols::{Handshake, Reading, Writing};
+use crate::new_network::core::protocols::{Handshake, Reading, Writing};
 
 #[derive(Default)]
 pub(crate) struct Connections(RwLock<HashMap<SocketAddr, Connection>>);

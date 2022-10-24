@@ -33,7 +33,7 @@ use crate::new_network::core::{
     P2P,
 };
 #[cfg(doc)]
-use crate::new_network::core::{protocols::Handshake, Config};
+use crate::new_network::core::{config::Config, protocols::Handshake};
 #[cfg(doc)]
 use crate::new_network::node::Node;
 

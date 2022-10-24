@@ -27,7 +27,7 @@ use tokio_util::codec::{Decoder, FramedRead};
 use tracing::*;
 
 #[cfg(doc)]
-use crate::new_network::core::{protocols::Handshake, Config};
+use crate::new_network::core::{config::Config, protocols::Handshake};
 use crate::new_network::{
     core::{
         codec::MessageOrBytes,

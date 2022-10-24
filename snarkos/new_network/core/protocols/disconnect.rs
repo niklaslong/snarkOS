@@ -20,7 +20,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::*;
 
 #[cfg(doc)]
-use crate::new_network::core::{connection::Connection, protocols::Writing};
+use crate::new_network::core::{connections::Connection, protocols::Writing};
 use crate::new_network::core::{protocols::ProtocolHandler, P2P};
 
 /// Can be used to automatically perform some extra actions when the node disconnects from its
