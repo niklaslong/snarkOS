@@ -271,7 +271,7 @@ pub async fn handshake_kadmium(
         ConnectionSide::Initiator => {
             // Receive the peer's local ID.
             // TODO: Handle errors better.
-            let (peer_id, peer_port) = if let MessageOrBytes::Message(Message::Init(init)) = framed.try_next().await?.unwrap() {
+            let (peer_id, peer_port) = if let MessageOrBytes::KadmiumMessage(Message::Init(init)) = framed.try_next().await?.unwrap() {
                 (init.id, init.port)
             } else {
                 panic!("expected peer ID")
@@ -286,7 +286,7 @@ pub async fn handshake_kadmium(
 
             // Respond with our local ID and port.
             framed
-                .send(MessageOrBytes::Message(Message::Init(Init {
+                .send(MessageOrBytes::KadmiumMessage(Message::Init(Init {
                     nonce: 0,
                     id: local_id,
                     port: local_listening_port,
@@ -303,7 +303,7 @@ pub async fn handshake_kadmium(
             tokio::time::sleep(std::time::Duration::from_millis(1)).await;
             // Send our local ID and port to the peer.
             framed
-                .send(MessageOrBytes::Message(Message::Init(Init {
+                .send(MessageOrBytes::KadmiumMessage(Message::Init(Init {
                     nonce: 0,
                     id: local_id,
                     port: local_listening_port,
@@ -313,7 +313,7 @@ pub async fn handshake_kadmium(
             debug!(parent: span, "kadmium handshake (1/2): sent ID and listening port");
 
             // Receive the peer's local ID and port.
-            let (peer_id, _peer_port) = if let MessageOrBytes::Message(Message::Init(init)) = framed.try_next().await?.unwrap() {
+            let (peer_id, _peer_port) = if let MessageOrBytes::KadmiumMessage(Message::Init(init)) = framed.try_next().await?.unwrap() {
                 (init.id, init.port)
             } else {
                 panic!("expected peer ID")

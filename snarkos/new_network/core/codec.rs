@@ -17,18 +17,19 @@
 use std::{io, sync::Arc};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use kadmium::{codec::MessageCodec, message::Message};
+use kadmium::{codec::MessageCodec, message::Message as KadmiumMessage};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use snow::{HandshakeState, StatelessTransportState};
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
 
-use crate::{new_network::node::CurrentNetwork, MessageCodec as SnarkOSCodec};
+use crate::{new_network::node::CurrentNetwork, Message as SnarkOSMessage, MessageCodec as SnarkOSCodec};
 
 const MAX_MESSAGE_LEN: usize = 65535;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum MessageOrBytes {
-    Message(Message),
+    KadmiumMessage(KadmiumMessage),
+    SnarkOSMessage(SnarkOSMessage<CurrentNetwork>),
     Bytes(Bytes),
 }
 
@@ -101,7 +102,7 @@ impl Encoder<MessageOrBytes> for NoiseCodec {
                 buffer[..len + 1].into()
             }
 
-            (NoiseState::PostHandshake(ref mut noise), MessageOrBytes::Message(message)) => {
+            (NoiseState::PostHandshake(ref mut noise), MessageOrBytes::KadmiumMessage(message)) => {
                 // Encode the kadmium message using its codec.
                 let mut bytes = BytesMut::new();
                 self.kadmium_codec.encode(message, &mut bytes).unwrap();
@@ -199,7 +200,7 @@ impl Decoder for NoiseCodec {
                     plaintext.extend_from_slice(&chunk?);
                 }
 
-                self.kadmium_codec.decode(&mut plaintext)?.map(MessageOrBytes::Message)
+                self.kadmium_codec.decode(&mut plaintext)?.map(MessageOrBytes::KadmiumMessage)
             }
 
             _ => unimplemented!(),

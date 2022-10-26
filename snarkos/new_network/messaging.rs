@@ -17,7 +17,7 @@
 use std::{io, net::SocketAddr};
 
 use bytes::BytesMut;
-use kadmium::message::Message;
+use kadmium::message::Message as KadmiumMessage;
 use tokio_util::codec::Decoder;
 use tracing::*;
 
@@ -35,8 +35,10 @@ use crate::{
 };
 
 impl Node {
-    async fn process_message(&self, source: SocketAddr, message: Message) -> io::Result<()> {
-        if let Message::Chunk(chunk) = message {
+    async fn process_kadmium_message(&self, source: SocketAddr, message: KadmiumMessage) -> io::Result<()> {
+        info!(parent: self.span(), "processing {:?} from {}", message.variant_as_str(), source);
+
+        if let KadmiumMessage::Chunk(chunk) = message {
             // Decode the snarkOS messages.
             let mut data = BytesMut::zeroed(chunk.data.len());
             data.copy_from_slice(&chunk.data);
@@ -45,16 +47,6 @@ impl Node {
             let message = codec.decode(&mut data)?;
 
             match message {
-                Some(SnarkOSMessage::Ping) => {
-                    info!(parent: self.span(), "got PING from {source}, sending PONG");
-
-                    // TODO: send PONG.
-                }
-
-                Some(SnarkOSMessage::Pong(pong_data)) => {
-                    info!(parent: self.span(), "got PONG from {source}")
-                }
-
                 _ => {
                     // TODO: handle no data.
                 }
@@ -62,6 +54,10 @@ impl Node {
         }
 
         Ok(())
+    }
+
+    async fn process_snarkos_message(&self, source: SocketAddr, message: SnarkOSMessage<CurrentNetwork>) -> io::Result<()> {
+        todo!()
     }
 }
 
@@ -76,14 +72,13 @@ impl Reading for Node {
 
     async fn process_message(&self, source: SocketAddr, message: MessageOrBytes) -> io::Result<()> {
         let message = match message {
-            MessageOrBytes::Message(message) => message,
+            MessageOrBytes::SnarkOSMessage(message) => self.process_snarkos_message(source, message).await?,
+            MessageOrBytes::KadmiumMessage(message) => self.process_kadmium_message(source, message).await?,
             // Ignore plain bytes after the handshake.
             MessageOrBytes::Bytes(_) => return Ok(()),
         };
 
-        info!(parent: self.span(), "processing {:?} from {}", message.variant_as_str(), source);
-
-        self.process_message(source, message).await
+        Ok(())
     }
 }
 
