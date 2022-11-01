@@ -60,15 +60,15 @@ macro_rules! enable_protocol {
     };
 }
 
-// A seuential numeric identifier assigned to `Node`s that were not provided with a name.
+// A seuential numeric identifier assigned to `Network`s that were not provided with a name.
 static SEQUENTIAL_NODE_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// The central object responsible for handling connections.
 #[derive(Clone)]
-pub struct Node(Arc<InnerNode>);
+pub struct Network(Arc<InnerNetwork>);
 
-impl Deref for Node {
-    type Target = Arc<InnerNode>;
+impl Deref for Network {
+    type Target = Arc<InnerNetwork>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -76,7 +76,7 @@ impl Deref for Node {
 }
 
 #[doc(hidden)]
-pub struct InnerNode {
+pub struct InnerNetwork {
     /// The tracing span.
     span: Span,
     /// The node's configuration.
@@ -97,8 +97,8 @@ pub struct InnerNode {
     pub(crate) tasks: Mutex<Vec<JoinHandle<()>>>,
 }
 
-impl Node {
-    /// Creates a new [`Node`] using the given [`Config`].
+impl Network {
+    /// Creates a new [`Network`] using the given [`Config`].
     pub async fn new(mut config: Config) -> io::Result<Self> {
         // if there is no pre-configured name, assign a sequential numeric identifier
         if config.name.is_none() {
@@ -145,7 +145,7 @@ impl Node {
             None
         };
 
-        let node = Node(Arc::new(InnerNode {
+        let node = Network(Arc::new(InnerNetwork {
             span,
             config,
             listening_addr,
@@ -207,7 +207,7 @@ impl Node {
     /// Returns the name assigned to the node.
     #[inline]
     pub fn name(&self) -> &str {
-        // safe; can be set as None in Config, but receives a default value on Node creation
+        // safe; can be set as None in Config, but receives a default value on Network creation
         self.config.name.as_deref().unwrap()
     }
 
@@ -251,7 +251,7 @@ impl Node {
         Ok(conn)
     }
 
-    /// Prepares the freshly acquired connection to handle the protocols the Node implements.
+    /// Prepares the freshly acquired connection to handle the protocols the Network implements.
     async fn adapt_stream(&self, stream: TcpStream, peer_addr: SocketAddr, own_side: ConnectionSide) -> io::Result<()> {
         self.known_peers.add(peer_addr);
 
@@ -393,7 +393,7 @@ impl Node {
         self.connecting.lock().len()
     }
 
-    /// Checks whether the `Node` can handle an additional connection.
+    /// Checks whether the `Network` can handle an additional connection.
     fn can_add_connection(&self) -> bool {
         let num_connected = self.num_connected();
         let limit = self.config.max_connections as usize;

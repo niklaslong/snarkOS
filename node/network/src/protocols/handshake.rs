@@ -53,7 +53,7 @@ where
         // spawn a background task dedicated to handling the handshakes
         let self_clone = self.clone();
         let handshake_task = tokio::spawn(async move {
-            trace!(parent: self_clone.node().span(), "spawned the Handshake handler task");
+            trace!(parent: self_clone.network().span(), "spawned the Handshake handler task");
             tx.send(()).unwrap(); // safe; the channel was just opened
 
             while let Some((conn, result_sender)) = from_node_receiver.recv().await {
@@ -61,37 +61,40 @@ where
 
                 let node = self_clone.clone();
                 tokio::spawn(async move {
-                    debug!(parent: node.node().span(), "shaking hands with {} as the {:?}", addr, !conn.side());
+                    debug!(parent: node.network().span(), "shaking hands with {} as the {:?}", addr, !conn.side());
                     let result = timeout(Duration::from_millis(Self::TIMEOUT_MS), node.perform_handshake(conn)).await;
 
                     let ret = match result {
                         Ok(Ok(conn)) => {
-                            debug!(parent: node.node().span(), "successfully handshaken with {}", addr);
+                            debug!(parent: node.network().span(), "successfully handshaken with {}", addr);
                             Ok(conn)
                         }
                         Ok(Err(e)) => {
-                            error!(parent: node.node().span(), "handshake with {} failed: {}", addr, e);
+                            error!(parent: node.network().span(), "handshake with {} failed: {}", addr, e);
                             Err(e)
                         }
                         Err(_) => {
-                            error!(parent: node.node().span(), "handshake with {} timed out", addr);
+                            error!(parent: node.network().span(), "handshake with {} timed out", addr);
                             Err(io::ErrorKind::TimedOut.into())
                         }
                     };
 
-                    // return the Connection to the Node, resuming Node::adapt_stream
+                    // return the Connection to the Network, resuming Network::adapt_stream
                     if result_sender.send(ret).is_err() {
-                        unreachable!("couldn't return a Connection to the Node");
+                        unreachable!("couldn't return a Connection to the Network");
                     }
                 });
             }
         });
         let _ = rx.await;
-        self.node().tasks.lock().push(handshake_task);
+        self.network().tasks.lock().push(handshake_task);
 
-        // register the Handshake handler with the Node
+        // register the Handshake handler with the Network
         let hdl = Box::new(ProtocolHandler(from_node_sender));
-        assert!(self.node().protocols.handshake.set(hdl).is_ok(), "the Handshake protocol was enabled more than once!");
+        assert!(
+            self.network().protocols.handshake.set(hdl).is_ok(),
+            "the Handshake protocol was enabled more than once!"
+        );
     }
 
     /// Performs the handshake; temporarily assumes control of the [`Connection`] and returns it if the handshake is

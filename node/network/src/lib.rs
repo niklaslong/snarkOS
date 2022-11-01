@@ -30,11 +30,11 @@ pub mod protocols;
 pub use config::Config;
 pub use connections::{Connection, ConnectionSide};
 pub use known_peers::KnownPeers;
-pub use node::Node;
+pub use node::Network;
 pub use stats::Stats;
 
-/// A trait for objects containing a [`Node`]; it is required to implement protocols.
+/// A trait for objects containing a [`Network`]; it is required to implement protocols.
 pub trait P2P {
     /// Returns a clonable reference to the node.
-    fn node(&self) -> &Node;
+    fn network(&self) -> &Network;
 }
