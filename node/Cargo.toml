@@ -38,6 +38,9 @@ path = "../account"
 [dependencies.snarkos-node-consensus]
 path = "./consensus"
 
+[dependencies.snarkos-node-network]
+path = "./network"
+
 [dependencies.snarkos-node-executor]
 path = "./executor"
 
