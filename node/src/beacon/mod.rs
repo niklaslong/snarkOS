@@ -22,6 +22,7 @@ use snarkos_node_consensus::Consensus;
 use snarkos_node_executor::{spawn_task_loop, Executor, NodeType, Status};
 use snarkos_node_ledger::Ledger;
 use snarkos_node_messages::{Data, Message, PuzzleResponse, UnconfirmedBlock, UnconfirmedSolution};
+use snarkos_node_network::Network as NodeNetwork;
 use snarkos_node_rest::Rest;
 use snarkos_node_router::{Handshake, Inbound, Outbound, Router, RouterRequest};
 use snarkos_node_store::ConsensusDB;
@@ -56,6 +57,8 @@ pub struct Beacon<N: Network> {
     block_generation_time: Arc<AtomicU64>,
     /// The shutdown signal.
     shutdown: Arc<AtomicBool>,
+
+    network: NodeNetwork,
 }
 
 impl<N: Network> Beacon<N> {
@@ -98,6 +101,8 @@ impl<N: Network> Beacon<N> {
             rest,
             block_generation_time,
             shutdown: Default::default(),
+            // TODO(nkls), wire up configuration.
+            network: NodeNetwork::new(Default::default()).await?,
         };
         // Initialize the router handler.
         router.initialize_handler(node.clone(), router_receiver).await;
