@@ -31,6 +31,7 @@ use snarkvm::prelude::{Address, Block, Network, PrivateKey, ViewKey};
 use anyhow::{bail, Result};
 use core::time::Duration;
 use std::{
+    collections::HashMap,
     net::SocketAddr,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -59,6 +60,7 @@ pub struct Beacon<N: Network> {
     shutdown: Arc<AtomicBool>,
 
     network: NodeNetwork,
+    connection_meta: Arc<RwLock<HashMap<SocketAddr, ConnectionMeta>>>,
 }
 
 impl<N: Network> Beacon<N> {
@@ -103,7 +105,15 @@ impl<N: Network> Beacon<N> {
             shutdown: Default::default(),
             // TODO(nkls), wire up configuration.
             network: NodeNetwork::new(Default::default()).await?,
+            connection_meta: Default::default(),
         };
+
+        // Enable the node's protocols.
+        node.enable_handshake().await;
+        node.enable_reading().await;
+        node.enable_writing().await;
+        node.enable_disconnect().await;
+
         // Initialize the router handler.
         router.initialize_handler(node.clone(), router_receiver).await;
 
@@ -356,4 +366,88 @@ impl<N: Network> Beacon<N> {
 
         Ok(())
     }
+}
+
+/* Network traits */
+
+use snarkos_node_messages::{MessageOrBytes, NoiseCodec, NoiseState};
+use snarkos_node_network::{
+    protocols::{Disconnect, Handshake as Handshaking, Reading, Writing},
+    Connection,
+    ConnectionSide,
+    P2P,
+};
+
+use std::io;
+
+impl<N: Network> Beacon<N> {
+    pub fn noise_state(&self, addr: SocketAddr) -> Option<NoiseState> {
+        self.connection_meta.read().get(&addr).map(|meta| meta.noise_state.clone())
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ConnectionMeta {
+    side: ConnectionSide,
+    noise_state: NoiseState,
+}
+
+impl ConnectionMeta {
+    fn new(side: ConnectionSide, noise_state: NoiseState) -> Self {
+        Self { side, noise_state }
+    }
+}
+
+impl<N: Network> P2P for Beacon<N> {
+    fn network(&self) -> &NodeNetwork {
+        &self.network
+    }
+}
+
+#[async_trait::async_trait]
+impl<N: Network> Handshaking for Beacon<N> {
+    async fn perform_handshake(&self, conn: Connection) -> io::Result<Connection> {
+        let peer_side = conn.side();
+
+        match peer_side {
+            // The peer initiated the connection.
+            ConnectionSide::Initiator => {}
+
+            // The relay initiated the connection.
+            ConnectionSide::Responder => {}
+        }
+
+        Ok(conn)
+    }
+}
+
+#[async_trait::async_trait]
+impl<N: Network> Reading for Beacon<N> {
+    type Codec = NoiseCodec;
+    type Message = MessageOrBytes;
+
+    fn codec(&self, addr: SocketAddr, _side: ConnectionSide) -> Self::Codec {
+        let noise_state = self.noise_state(addr).unwrap();
+        NoiseCodec::new(noise_state)
+    }
+
+    async fn process_message(&self, source: SocketAddr, message: Self::Message) -> io::Result<()> {
+        todo!()
+    }
+}
+
+#[async_trait::async_trait]
+impl<N: Network> Writing for Beacon<N> {
+    type Codec = NoiseCodec;
+    type Message = MessageOrBytes;
+
+    fn codec(&self, addr: SocketAddr, _side: ConnectionSide) -> Self::Codec {
+        let noise_state = self.noise_state(addr).unwrap();
+        NoiseCodec::new(noise_state)
+    }
+}
+
+#[async_trait::async_trait]
+impl<N: Network> Disconnect for Beacon<N> {
+    async fn handle_disconnect(&self, _addr: SocketAddr) {}
 }

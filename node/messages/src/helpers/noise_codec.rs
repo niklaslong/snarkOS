@@ -68,13 +68,14 @@ impl MessageOrBytes {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PostHandshakeState {
     state: Arc<StatelessTransportState>,
     tx_nonce: u64,
     rx_nonce: u64,
 }
 
+#[derive(Debug)]
 pub enum NoiseState {
     Handshake(Box<HandshakeState>),
     PostHandshake(PostHandshakeState),
