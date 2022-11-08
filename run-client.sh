@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# USAGE examples: 
+# USAGE examples:
   # CLI :  ./run-client.sh
 
 COMMAND='cargo run --release -- start --nodisplay'
@@ -21,6 +21,7 @@ trap exit_node SIGINT
 
 echo "Running an Aleo client node..."
 $COMMAND &
+pid=$!
 
 while :
 do
@@ -28,13 +29,14 @@ do
   git stash
   rm Cargo.lock
   STATUS=$(git pull)
-  
+
   if [ "$STATUS" != "Already up to date." ]; then
     echo "Updated code found, rebuilding and relaunching client"
     cargo clean
-    kill -INT $!; sleep 2; $COMMAND &
+    kill -INT $pid; sleep 2; $COMMAND &
+    pid = $!
   fi
-  
-  sleep 1800
+
+  sleep 300
 
 done
