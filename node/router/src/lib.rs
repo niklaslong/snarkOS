@@ -130,15 +130,15 @@ impl<N: Network> Router<N> {
     /// The maximum duration in seconds permitted for establishing a connection with a node, before dropping the connection.
     const CONNECTION_TIMEOUT_IN_MILLIS: u64 = 210; // 3.5 minutes
     /// The duration in seconds to sleep in between heartbeat executions.
-    const HEARTBEAT_IN_SECS: u64 = 9; // 9 seconds
+    pub const HEARTBEAT_IN_SECS: u64 = 9; // 9 seconds
     /// The maximum number of candidate peers permitted to be stored in the node.
     const MAXIMUM_CANDIDATE_PEERS: usize = 10_000;
     /// The maximum number of connection failures permitted by an inbound connecting peer.
     const MAXIMUM_CONNECTION_FAILURES: u32 = 3;
     /// The maximum number of peers permitted to maintain connections with.
-    const MAXIMUM_NUMBER_OF_PEERS: usize = 21;
+    pub const MAXIMUM_NUMBER_OF_PEERS: usize = 21;
     /// The minimum number of peers required to maintain connections with.
-    const MINIMUM_NUMBER_OF_PEERS: usize = 1;
+    pub const MINIMUM_NUMBER_OF_PEERS: usize = 1;
     /// The duration in seconds to sleep in between ping requests with a connected peer.
     const PING_SLEEP_IN_SECS: u64 = 60; // 1 minute
     /// The duration in seconds after which a connected peer is considered inactive or

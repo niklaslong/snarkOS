@@ -30,6 +30,7 @@ use snarkvm::prelude::{Address, Block, Network, PrivateKey, ViewKey};
 
 use anyhow::{bail, Result};
 use core::time::Duration;
+use parking_lot::RwLock;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -59,8 +60,12 @@ pub struct Beacon<N: Network> {
     /// The shutdown signal.
     shutdown: Arc<AtomicBool>,
 
+    // TODO(nkls): potentially encapsulate.
     network: NodeNetwork,
     connection_meta: Arc<RwLock<HashMap<SocketAddr, ConnectionMeta>>>,
+    trusted_peers: Arc<HashSet<SocketAddr>>,
+    candidate_peers: Arc<RwLock<HashSet<SocketAddr>>>,
+    restricted_peers: Arc<RwLock<HashMap<SocketAddr, OffsetDateTime>>>,
 }
 
 impl<N: Network> Beacon<N> {
@@ -106,6 +111,9 @@ impl<N: Network> Beacon<N> {
             // TODO(nkls), wire up configuration.
             network: NodeNetwork::new(Default::default()).await?,
             connection_meta: Default::default(),
+            trusted_peers: Default::default(),
+            candidate_peers: Default::default(),
+            restricted_peers: Default::default(),
         };
 
         // Enable the node's protocols.
@@ -370,7 +378,8 @@ impl<N: Network> Beacon<N> {
 
 /* Network traits */
 
-use snarkos_node_messages::{MessageOrBytes, NoiseCodec, NoiseState};
+use snarkos_node_executor::RawStatus;
+use snarkos_node_messages::{MessageOrBytes, NoiseCodec, NoiseState, PeerRequest};
 use snarkos_node_network::{
     protocols::{Disconnect, Handshake as Handshaking, Reading, Writing},
     Connection,
@@ -378,11 +387,145 @@ use snarkos_node_network::{
     P2P,
 };
 
-use std::io;
+use std::{
+    collections::HashSet,
+    io,
+    time::{Instant, SystemTime},
+};
+
+use rand::{
+    prelude::{IteratorRandom, SliceRandom},
+    rngs::OsRng,
+};
 
 impl<N: Network> Beacon<N> {
     pub fn noise_state(&self, addr: SocketAddr) -> Option<NoiseState> {
         self.connection_meta.read().get(&addr).map(|meta| meta.noise_state.clone())
+    }
+
+    pub fn trusted_peers(&self) -> &HashSet<SocketAddr> {
+        &self.trusted_peers
+    }
+
+    pub fn candidate_peers(&self) -> Vec<SocketAddr> {
+        self.candidate_peers.read().iter().copied().collect()
+    }
+
+    pub fn insert_candidate_peer(&self, addr: SocketAddr) {
+        self.candidate_peers.write().insert(addr);
+    }
+
+    pub fn remove_candidate_peer(&self, addr: SocketAddr) {
+        self.candidate_peers.write().remove(&addr);
+    }
+
+    pub fn insert_restricted_peer(&self, addr: SocketAddr) {
+        self.restricted_peers.write().insert(addr, OffsetDateTime::now_utc());
+    }
+
+    pub fn remove_restricted_peer(&self, addr: SocketAddr) {
+        self.restricted_peers.write().remove(&addr);
+    }
+
+    pub fn connected_beacons(&self) -> Vec<SocketAddr> {
+        self.connection_meta
+            .read()
+            .iter()
+            .filter(|(addr, meta)| meta.node_type == NodeType::Beacon)
+            .map(|(addr, meta)| addr)
+            .copied()
+            .collect()
+    }
+
+    pub async fn start_periodic_tasks(&self) {
+        let node = self.clone();
+        // TODO(nkls): task accounting.
+        tokio::spawn(async move {
+            loop {
+                node.heartbeat().await;
+                // Sleep for `Self::HEARTBEAT_IN_SECS` seconds.
+                tokio::time::sleep(Duration::from_secs(Router::<N>::HEARTBEAT_IN_SECS)).await;
+            }
+        });
+    }
+
+    pub async fn heartbeat(&self) {
+        // tl;dr:
+        // 1. ensure min-max peers (disconnect, peer requests to trusted peers, attempting
+        //    connections).
+        // 2. ensure trusted peers are connected.
+        // 3. ensure only one beacon is connected.
+
+        // Ensure the node has less than MAX PEERS. This shouldn't be necessary as this is checked
+        // in the network upon connection but might as well sanity check it here.
+        let num_excess_peers = self.network.num_connected().saturating_sub(Router::<N>::MAXIMUM_NUMBER_OF_PEERS);
+        if num_excess_peers > 0 {
+            debug!("Exceeded maximum number of connected peers, disconnecting from {num_excess_peers} peers");
+
+            for peer_addr in self
+                .network
+                .connected_addrs()
+                .into_iter()
+                .filter(|peer_addr| !self.trusted_peers().contains(peer_addr))
+                .take(num_excess_peers)
+            {
+                info!("Disconnecting from 'peer' {peer_addr}");
+
+                let _disconnected = self.network.disconnect(peer_addr).await;
+                debug_assert!(_disconnected);
+            }
+        }
+
+        // Ensure the node is only connected to one beacon.
+        let connected_beacons = self.connected_beacons();
+        let num_excess_beacons = connected_beacons.len().saturating_sub(1);
+        if num_excess_beacons > 0 {
+            debug!("Exceeded maximum number of connected beacons by {num_excess_beacons}");
+
+            for beacon_addr in connected_beacons.into_iter().choose_multiple(&mut OsRng::default(), num_excess_beacons)
+            {
+                info!("Disconnecting from 'beacon' {beacon_addr}");
+
+                let _disconnected = self.network.disconnect(beacon_addr).await;
+                debug_assert!(_disconnected);
+            }
+        }
+
+        // Ensure the trusted peers are connected.
+        for trusted_peer_addr in self.trusted_peers().into_iter() {
+            if !self.network.is_connected(*trusted_peer_addr) {
+                info!("Connecting to 'trusted peer' {trusted_peer_addr}");
+
+                // Silence the error if there is any, this isn't a halting case.
+                let _connected = self.network.connect(*trusted_peer_addr).await;
+                debug_assert!(_connected.is_ok());
+            }
+        }
+
+        // Ensure the node has more peers than MIN PEERS.
+        let num_connected = self.network.num_connected();
+        let num_missing_peers = Router::<N>::MINIMUM_NUMBER_OF_PEERS.saturating_sub(num_connected);
+
+        if num_missing_peers > 0 {
+            for candidate_addr in self.candidate_peers().into_iter().take(num_missing_peers) {
+                let connection_succesful = self.network.connect(candidate_addr).await.is_ok();
+                self.remove_candidate_peer(candidate_addr);
+
+                if !connection_succesful {
+                    self.insert_restricted_peer(candidate_addr)
+                }
+            }
+
+            // If we have existing peers, request more addresses from them.
+            if num_connected > 0 {
+                for peer_addr in self.network.connected_addrs().choose_multiple(&mut OsRng::default(), 3) {
+                    // Let the error through for now.
+                    let _res =
+                        self.unicast(*peer_addr, MessageOrBytes::Message(Box::new(Message::PeerRequest(PeerRequest))));
+                    debug_assert!(_res.expect("writing protocol should be enabled").await.is_ok());
+                }
+            }
+        }
     }
 }
 
@@ -390,11 +533,29 @@ impl<N: Network> Beacon<N> {
 struct ConnectionMeta {
     side: ConnectionSide,
     noise_state: NoiseState,
+
+    // TODO(nkls): potentially split this out.
+    // Peer Meta:
+    version: u32,
+    node_type: NodeType,
+    status: RawStatus,
+    block_height: Arc<RwLock<u32>>,  // TODO(nkls): this could probably be an atomic.
+    last_seen: Arc<RwLock<Instant>>, // TODO(nkls): consider the time crate here.
+    seen_messages: Arc<RwLock<HashMap<(u16, u32), SystemTime>>>,
 }
 
 impl ConnectionMeta {
-    fn new(side: ConnectionSide, noise_state: NoiseState) -> Self {
-        Self { side, noise_state }
+    fn new(side: ConnectionSide, noise_state: NoiseState, version: u32, node_type: NodeType) -> Self {
+        Self {
+            side,
+            noise_state,
+            version,
+            node_type,
+            status: RawStatus::new(),
+            block_height: Arc::new(RwLock::new(0)),
+            last_seen: Arc::new(RwLock::new(Instant::now())),
+            seen_messages: Default::default(),
+        }
     }
 }
 
