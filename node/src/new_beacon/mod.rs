@@ -19,27 +19,25 @@ use router::Router;
 
 use snarkos_account::Account;
 use snarkos_node_consensus::Consensus;
-use snarkos_node_executor::{spawn_task_loop, Executor, NodeType, Status};
+use snarkos_node_executor::NodeType;
 use snarkos_node_ledger::Ledger;
-use snarkos_node_messages::{Data, Message, PuzzleResponse, UnconfirmedBlock, UnconfirmedSolution};
+use snarkos_node_messages::Message;
 use snarkos_node_network::Network;
 use snarkos_node_rest::Rest;
 use snarkos_node_store::ConsensusDB;
-use snarkvm::prelude::{Address, Block, Network as CurrentNetwork, PrivateKey, ViewKey};
+use snarkvm::prelude::{Block, Network as CurrentNetwork, PrivateKey};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use core::time::Duration;
 use parking_lot::RwLock;
 use std::{
     collections::HashMap,
     net::SocketAddr,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64},
         Arc,
     },
 };
-use time::OffsetDateTime;
-use tokio::time::timeout;
 
 #[derive(Clone)]
 pub struct Beacon<N: CurrentNetwork> {
@@ -128,7 +126,6 @@ use snarkos_node_network::{
 };
 
 use std::{
-    collections::HashSet,
     io,
     time::{Instant, SystemTime},
 };

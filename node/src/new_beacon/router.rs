@@ -82,8 +82,8 @@ impl Router {
         self.connection_meta
             .read()
             .iter()
-            .filter(|(addr, meta)| meta.node_type == NodeType::Beacon)
-            .map(|(addr, meta)| addr)
+            .filter(|(_addr, meta)| meta.node_type == NodeType::Beacon)
+            .map(|(addr, _meta)| addr)
             .copied()
             .collect()
     }
