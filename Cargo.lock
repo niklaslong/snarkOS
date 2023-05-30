@@ -4792,6 +4792,7 @@ dependencies = [
  "indexmap",
  "narwhal-config",
  "narwhal-crypto",
+ "narwhal-executor",
  "narwhal-node",
  "narwhal-types",
  "num_cpus",
