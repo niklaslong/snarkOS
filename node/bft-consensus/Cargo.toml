@@ -27,9 +27,11 @@ snarkos-node-tcp = { path = "../tcp" }
 snarkvm = { workspace = true }
 
 # below are the dependencies for BFT
+mysten-network.workspace = true
 narwhal-config.workspace = true
 narwhal-crypto.workspace = true
 narwhal-executor.workspace = true
+narwhal-network.workspace = true
 narwhal-node.workspace = true
 narwhal-worker.workspace = true
 narwhal-types.workspace = true

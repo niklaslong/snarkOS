@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use fastcrypto::traits::{EncodeDecodeBase64 as _, KeyPair as _};
-use narwhal_crypto::EncodeDecodeBase64;
 use std::{
     collections::BTreeMap,
     fs,
@@ -23,9 +22,14 @@ use std::{
 
 #[cfg(not(feature = "test"))]
 use aleo_std::aleo_dir;
-use multiaddr::Multiaddr;
-use narwhal_config::{Authority, Committee, WorkerCache, WorkerIndex, WorkerInfo};
-use narwhal_crypto::{KeyPair as NarwhalKeyPair, NetworkKeyPair, PublicKey};
+use mysten_network::multiaddr::Multiaddr;
+use narwhal_config::{Authority, Committee, CommitteeBuilder, WorkerCache, WorkerIndex, WorkerInfo};
+use narwhal_crypto::{
+    traits::{EncodeDecodeBase64, KeyPair},
+    KeyPair as NarwhalKeyPair,
+    NetworkKeyPair,
+    PublicKey,
+};
 use rand::prelude::ThreadRng;
 use tracing::*;
 
@@ -98,7 +102,7 @@ impl PrimarySetup {
         Self {
             stake,
             address,
-            keypair: NarwhalKeyPair::new(rng).unwrap(),
+            keypair: NarwhalKeyPair::generate(rng),
             network_keypair: NetworkKeyPair::generate(rng),
             workers,
         }
@@ -150,19 +154,16 @@ impl CommitteeSetup {
 
     // Generates a Committee.
     pub fn generate_committee(&self) -> Committee {
-        #[allow(clippy::mutable_key_type)]
-        let mut authorities = BTreeMap::default();
+        let mut committee_builder = CommitteeBuilder::new(0);
         for (primary_public, primary) in &self.primaries {
-            let authority = Authority {
-                stake: primary.stake,
-                primary_address: primary.address.clone(),
-                network_key: primary.network_keypair.public().clone(),
-            };
-
-            authorities.insert(primary_public.clone(), authority);
+            committee_builder = committee_builder.add_authority(
+                primary_public.clone(),
+                primary.stake,
+                primary.address.clone(),
+                primary.network_keypair.public().clone(),
+            );
         }
-
-        Committee { authorities, epoch: self.epoch }
+        committee_builder.build()
     }
 
     // Generates a WorkerCache.
