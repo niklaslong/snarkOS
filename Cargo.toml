@@ -51,14 +51,14 @@ jemalloc = [ "tikv-jemallocator" ]
 #narwhal-node        = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-node"}
 #narwhal-worker      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-worker"}
 
-mysten-network      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "mysten-network", branch = "partial-backports-v2" }
-narwhal-types       = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-types", branch = "partial-backports-v2" }
-narwhal-config      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-config", branch = "partial-backports-v2" }
-narwhal-crypto      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-crypto", branch = "partial-backports-v2" }
-narwhal-executor    = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-executor",branch = "partial-backports-v2" }
-narwhal-network     = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-network" ,branch = "partial-backports-v2" }
-narwhal-node        = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-node", branch = "partial-backports-v2" }
-narwhal-worker      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-worker", branch = "partial-backports-v2" }
+mysten-network      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "mysten-network", branch = "partial-backports-v3" }
+narwhal-types       = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-types", branch = "partial-backports-v3" }
+narwhal-config      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-config", branch = "partial-backports-v3" }
+narwhal-crypto      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-crypto", branch = "partial-backports-v3" }
+narwhal-executor    = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-executor",branch = "partial-backports-v3" }
+narwhal-network     = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-network" ,branch = "partial-backports-v3" }
+narwhal-node        = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-node", branch = "partial-backports-v3" }
+narwhal-worker      = { git = "https://github.com/eqlabs/bullshark-bft/", package = "narwhal-worker", branch = "partial-backports-v3" }
 
 #mysten-network      = { path = "../bullshark-bft/crates/mysten-network" }
 #narwhal-types       = { path = "../bullshark-bft/narwhal/types" }
