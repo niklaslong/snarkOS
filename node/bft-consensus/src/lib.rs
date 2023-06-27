@@ -25,7 +25,7 @@ use anyhow::Result;
 use arc_swap::ArcSwap;
 use multiaddr::Protocol;
 use narwhal_config::{Committee, Import, Parameters, WorkerCache};
-use narwhal_crypto::{traits::KeyPair, KeyPair as NarwhalKeyPair, NetworkKeyPair};
+use narwhal_crypto::{KeyPair as NarwhalKeyPair, NetworkKeyPair};
 use narwhal_executor::ExecutionState;
 use narwhal_network::client::NetworkClient;
 use narwhal_node::{

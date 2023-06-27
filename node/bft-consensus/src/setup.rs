@@ -24,12 +24,7 @@ use std::{
 use aleo_std::aleo_dir;
 use mysten_network::multiaddr::Multiaddr;
 use narwhal_config::{Authority, Committee, CommitteeBuilder, WorkerCache, WorkerIndex, WorkerInfo};
-use narwhal_crypto::{
-    traits::{EncodeDecodeBase64, KeyPair},
-    KeyPair as NarwhalKeyPair,
-    NetworkKeyPair,
-    PublicKey,
-};
+use narwhal_crypto::{EncodeDecodeBase64, KeyPair as NarwhalKeyPair, NetworkKeyPair, PublicKey};
 use rand::prelude::ThreadRng;
 use tracing::*;
 
@@ -102,7 +97,7 @@ impl PrimarySetup {
         Self {
             stake,
             address,
-            keypair: NarwhalKeyPair::generate(rng),
+            keypair: NarwhalKeyPair::new(rng).expect("Failed to generate primary keypair."),
             network_keypair: NetworkKeyPair::generate(rng),
             workers,
         }
