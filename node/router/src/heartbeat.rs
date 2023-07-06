@@ -14,6 +14,7 @@
 
 use crate::{Outbound, Router, REDUNDANCY_FACTOR};
 use snarkos_node_messages::{DisconnectReason, Message, PeerRequest, PuzzleRequest};
+use snarkos_node_tcp::TcpExt;
 use snarkvm::prelude::Network;
 
 use colored::Colorize;
@@ -203,7 +204,7 @@ pub trait Heartbeat<N: Network>: Outbound<N> {
         let mut connected_bootstrap = Vec::new();
         let mut candidate_bootstrap = Vec::new();
         for bootstrap_ip in self.router().bootstrap_peers() {
-            match self.router().is_connected(&bootstrap_ip) {
+            match self.router().is_connected(bootstrap_ip) {
                 true => connected_bootstrap.push(bootstrap_ip),
                 false => candidate_bootstrap.push(bootstrap_ip),
             }
@@ -245,7 +246,7 @@ pub trait Heartbeat<N: Network>: Outbound<N> {
         // Ensure that the trusted nodes are connected.
         for peer_ip in self.router().trusted_peers() {
             // If the peer is not connected, attempt to connect to it.
-            if !self.router().is_connected(peer_ip) {
+            if !self.router().is_connected(*peer_ip) {
                 // Attempt to connect to the trusted peer.
                 self.router().connect(*peer_ip);
             }

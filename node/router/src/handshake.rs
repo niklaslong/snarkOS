@@ -22,7 +22,7 @@ use snarkos_node_messages::{
     MessageCodec,
     MessageTrait,
 };
-use snarkos_node_tcp::{ConnectionSide, Tcp, P2P};
+use snarkos_node_tcp::{ConnectionSide, Tcp, TcpExt, P2P};
 use snarkvm::prelude::{block::Header, error, Address, Network};
 
 use anyhow::{bail, Result};
@@ -249,7 +249,7 @@ impl<N: Network> Router<N> {
     /// Ensure the peer is allowed to connect.
     fn ensure_peer_is_allowed(&self, peer_ip: SocketAddr) -> Result<()> {
         // Ensure the peer IP is not this node.
-        if self.is_local_ip(&peer_ip) {
+        if self.is_local_ip(peer_ip) {
             bail!("Dropping connection request from '{peer_ip}' (attempted to self-connect)")
         }
         // Ensure the node is not already connecting to this peer.
@@ -257,11 +257,11 @@ impl<N: Network> Router<N> {
             bail!("Dropping connection request from '{peer_ip}' (already shaking hands as the initiator)")
         }
         // Ensure the node is not already connected to this peer.
-        if self.is_connected(&peer_ip) {
+        if self.is_connected(peer_ip) {
             bail!("Dropping connection request from '{peer_ip}' (already connected)")
         }
         // Ensure the peer is not restricted.
-        if self.is_restricted(&peer_ip) {
+        if self.is_restricted(peer_ip) {
             bail!("Dropping connection request from '{peer_ip}' (restricted)")
         }
         // Ensure the peer is not spamming connection attempts.

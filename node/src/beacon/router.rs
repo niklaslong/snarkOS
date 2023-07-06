@@ -16,7 +16,7 @@ use super::*;
 
 use snarkos_node_messages::{BlockRequest, BlockResponse, DataBlocks, DisconnectReason, Message, MessageCodec, Pong};
 use snarkos_node_router::Routing;
-use snarkos_node_tcp::{Connection, ConnectionSide, Tcp};
+use snarkos_node_tcp::{Connection, ConnectionSide, Tcp, TcpExt};
 use snarkvm::prelude::{block::Header, coinbase::EpochChallenge, error};
 
 use std::{io, net::SocketAddr};
@@ -192,7 +192,7 @@ impl<N: Network, C: ConsensusStorage<N>> Inbound<N> for Beacon<N, C> {
             // Sleep for the preset time before sending a `Ping` request.
             tokio::time::sleep(Duration::from_secs(Self::PING_SLEEP_IN_SECS)).await;
             // Check that the peer is still connected.
-            if self_clone.router().is_connected(&peer_ip) {
+            if self_clone.router().is_connected(peer_ip) {
                 // Retrieve the block locators.
                 match crate::helpers::get_block_locators(&self_clone.ledger) {
                     // Send a `Ping` message to the peer.

@@ -39,7 +39,7 @@ pub use routing::*;
 
 use snarkos_account::Account;
 use snarkos_node_messages::NodeType;
-use snarkos_node_tcp::{Config, Tcp};
+use snarkos_node_tcp::{Config, Tcp, TcpExt};
 use snarkvm::prelude::{Address, Network, PrivateKey, ViewKey};
 
 use anyhow::{bail, Result};
@@ -103,6 +103,48 @@ impl<N: Network> Router<N> {
     const RADIO_SILENCE_IN_SECS: u64 = 150; // 2.5 minutes
 }
 
+impl<N: Network> TcpExt for Router<N> {
+    fn local_ip(&self) -> SocketAddr {
+        self.tcp.listening_addr().expect("The TCP listener is not enabled")
+    }
+
+    fn resolve_to_ambiguous(&self, peer_ip: &SocketAddr) -> Option<SocketAddr> {
+        self.resolver.get_ambiguous(peer_ip)
+    }
+
+    fn number_of_connected_peers(&self) -> usize {
+        self.connected_peers.read().len()
+    }
+
+    fn max_connected_peers(&self) -> usize {
+        self.tcp.config().max_connections as usize
+    }
+
+    fn is_connected(&self, peer_ip: SocketAddr) -> bool {
+        self.connected_peers.read().contains_key(&peer_ip)
+    }
+
+    fn is_restricted(&self, peer_ip: SocketAddr) -> bool {
+        self.restricted_peers
+            .read()
+            .get(&peer_ip)
+            .map(|time| time.elapsed().as_secs() < Self::RADIO_SILENCE_IN_SECS)
+            .unwrap_or(false)
+    }
+
+    fn remove_candidate_peer(&self, peer_ip: SocketAddr) -> bool {
+        self.candidate_peers.write().remove(&peer_ip)
+    }
+
+    fn insert_connecting_peer(&self, peer_ip: SocketAddr) -> bool {
+        self.connecting_peers.lock().insert(peer_ip)
+    }
+
+    fn remove_connecting_peer(&self, peer_ip: SocketAddr) -> bool {
+        self.connecting_peers.lock().remove(&peer_ip)
+    }
+}
+
 impl<N: Network> Router<N> {
     /// Initializes a new `Router` instance.
     pub async fn new(
@@ -131,77 +173,6 @@ impl<N: Network> Router<N> {
             handles: Default::default(),
             is_dev,
         })))
-    }
-
-    /// Attempts to connect to the given peer IP.
-    pub fn connect(&self, peer_ip: SocketAddr) -> Option<JoinHandle<()>> {
-        // Return early if the attempt is against the protocol rules.
-        if let Err(forbidden_message) = self.check_connection_attempt(peer_ip) {
-            warn!("{forbidden_message}");
-            return None;
-        }
-
-        let router = self.clone();
-        Some(tokio::spawn(async move {
-            // Attempt to connect to the candidate peer.
-            match router.tcp.connect(peer_ip).await {
-                // Remove the peer from the candidate peers.
-                Ok(()) => router.remove_candidate_peer(peer_ip),
-                // If the connection was not allowed, log the error.
-                Err(error) => {
-                    router.connecting_peers.lock().remove(&peer_ip);
-                    warn!("Unable to connect to '{peer_ip}' - {error}")
-                }
-            }
-        }))
-    }
-
-    /// Ensure we are allowed to connect to the given peer.
-    fn check_connection_attempt(&self, peer_ip: SocketAddr) -> Result<()> {
-        // Ensure the peer IP is not this node.
-        if self.is_local_ip(&peer_ip) {
-            bail!("Dropping connection attempt to '{peer_ip}' (attempted to self-connect)")
-        }
-        // Ensure the node does not surpass the maximum number of peer connections.
-        if self.number_of_connected_peers() >= self.max_connected_peers() {
-            bail!("Dropping connection attempt to '{peer_ip}' (maximum peers reached)")
-        }
-        // Ensure the node is not already connected to this peer.
-        if self.is_connected(&peer_ip) {
-            bail!("Dropping connection attempt to '{peer_ip}' (already connected)")
-        }
-        // Ensure the peer is not restricted.
-        if self.is_restricted(&peer_ip) {
-            bail!("Dropping connection attempt to '{peer_ip}' (restricted)")
-        }
-        // Ensure the node is not already connecting to this peer.
-        if !self.connecting_peers.lock().insert(peer_ip) {
-            bail!("Dropping connection attempt to '{peer_ip}' (already shaking hands as the initiator)")
-        }
-        Ok(())
-    }
-
-    /// Disconnects from the given peer IP, if the peer is connected.
-    pub fn disconnect(&self, peer_ip: SocketAddr) -> JoinHandle<()> {
-        let router = self.clone();
-        tokio::spawn(async move {
-            if let Some(peer_addr) = router.resolve_to_ambiguous(&peer_ip) {
-                // Disconnect from this peer.
-                let _disconnected = router.tcp.disconnect(peer_addr).await;
-                debug_assert!(_disconnected);
-            }
-        })
-    }
-
-    /// Returns the IP address of this node.
-    pub fn local_ip(&self) -> SocketAddr {
-        self.tcp.listening_addr().expect("The TCP listener is not enabled")
-    }
-
-    /// Returns `true` if the given IP is this node.
-    pub fn is_local_ip(&self, ip: &SocketAddr) -> bool {
-        *ip == self.local_ip()
-            || (ip.ip().is_unspecified() || ip.ip().is_loopback()) && ip.port() == self.local_ip().port()
     }
 
     /// Returns the node type.
@@ -239,16 +210,6 @@ impl<N: Network> Router<N> {
         self.resolver.get_listener(peer_addr)
     }
 
-    /// Returns the (ambiguous) peer address from the listener IP address.
-    pub fn resolve_to_ambiguous(&self, peer_ip: &SocketAddr) -> Option<SocketAddr> {
-        self.resolver.get_ambiguous(peer_ip)
-    }
-
-    /// Returns `true` if the node is connected to the given peer IP.
-    pub fn is_connected(&self, ip: &SocketAddr) -> bool {
-        self.connected_peers.read().contains_key(ip)
-    }
-
     /// Returns `true` if the given peer IP is a connected beacon.
     pub fn is_connected_beacon(&self, peer_ip: &SocketAddr) -> bool {
         self.connected_peers.read().get(peer_ip).map_or(false, |peer| peer.is_beacon())
@@ -272,20 +233,6 @@ impl<N: Network> Router<N> {
     /// Returns `true` if the node is currently connecting to the given peer IP.
     pub fn is_connecting(&self, ip: &SocketAddr) -> bool {
         self.connecting_peers.lock().contains(ip)
-    }
-
-    /// Returns `true` if the given IP is restricted.
-    pub fn is_restricted(&self, ip: &SocketAddr) -> bool {
-        self.restricted_peers
-            .read()
-            .get(ip)
-            .map(|time| time.elapsed().as_secs() < Self::RADIO_SILENCE_IN_SECS)
-            .unwrap_or(false)
-    }
-
-    /// Returns the maximum number of connected peers.
-    pub fn max_connected_peers(&self) -> usize {
-        self.tcp.config().max_connections as usize
     }
 
     /// Returns the number of connected peers.
@@ -435,7 +382,7 @@ impl<N: Network> Router<N> {
             .iter()
             .filter(|peer_ip| {
                 // Ensure the peer is not itself, is not already connected, and is not restricted.
-                !self.is_local_ip(peer_ip) && !self.is_connected(peer_ip) && !self.is_restricted(peer_ip)
+                !self.is_local_ip(**peer_ip) && !self.is_connected(**peer_ip) && !self.is_restricted(**peer_ip)
             })
             .take(max_candidate_peers);
 
@@ -486,11 +433,6 @@ impl<N: Network> Router<N> {
     #[cfg(feature = "test")]
     pub fn clear_candidate_peers(&self) {
         self.candidate_peers.write().clear();
-    }
-
-    /// Removes the given address from the candidate peers, if it exists.
-    pub fn remove_candidate_peer(&self, peer_ip: SocketAddr) {
-        self.candidate_peers.write().remove(&peer_ip);
     }
 
     /// Spawns a task with the given future; it should only be used for long-running tasks.

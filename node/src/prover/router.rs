@@ -15,7 +15,7 @@
 use super::*;
 
 use snarkos_node_messages::{BlockRequest, DisconnectReason, Message, MessageCodec, Pong, UnconfirmedTransaction};
-use snarkos_node_tcp::{Connection, ConnectionSide, Tcp};
+use snarkos_node_tcp::{Connection, ConnectionSide, Tcp, TcpExt};
 use snarkvm::prelude::{block::Transaction, Network};
 
 use std::{io, net::SocketAddr};
@@ -141,7 +141,7 @@ impl<N: Network, C: ConsensusStorage<N>> Inbound<N> for Prover<N, C> {
             // Sleep for the preset time before sending a `Ping` request.
             tokio::time::sleep(Duration::from_secs(Self::PING_SLEEP_IN_SECS)).await;
             // Check that the peer is still connected.
-            if self_clone.router().is_connected(&peer_ip) {
+            if self_clone.router().is_connected(peer_ip) {
                 // Send a `Ping` message to the peer.
                 self_clone.send_ping(peer_ip, None);
             }

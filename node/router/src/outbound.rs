@@ -14,7 +14,7 @@
 
 use crate::Router;
 use snarkos_node_messages::{BlockLocators, Message, Ping};
-use snarkos_node_tcp::protocols::Writing;
+use snarkos_node_tcp::{protocols::Writing, TcpExt};
 use snarkvm::prelude::Network;
 use std::io;
 
@@ -175,7 +175,7 @@ pub trait Outbound<N: Network>: Writing<Message = Message<N>> {
     /// Returns `true` if the message can be sent.
     fn can_send(&self, peer_ip: SocketAddr, message: &Message<N>) -> bool {
         // Ensure the peer is connected before sending.
-        if !self.router().is_connected(&peer_ip) {
+        if !self.router().is_connected(peer_ip) {
             warn!("Attempted to send to a non-connected peer {peer_ip}");
             return false;
         }

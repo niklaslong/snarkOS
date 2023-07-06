@@ -25,7 +25,7 @@ use snarkos_node_messages::{
     Pong,
     UnconfirmedTransaction,
 };
-use snarkos_node_tcp::{Connection, ConnectionSide, Tcp};
+use snarkos_node_tcp::{Connection, ConnectionSide, Tcp, TcpExt};
 use snarkvm::prelude::{block::Transaction, coinbase::EpochChallenge, error, Network};
 
 use std::{io, net::SocketAddr, time::Duration};
@@ -184,7 +184,7 @@ impl<N: Network, C: ConsensusStorage<N>> Inbound<N> for Validator<N, C> {
             // Sleep for the preset time before sending a `Ping` request.
             tokio::time::sleep(Duration::from_secs(Self::PING_SLEEP_IN_SECS)).await;
             // Check that the peer is still connected.
-            if self_clone.router().is_connected(&peer_ip) {
+            if self_clone.router().is_connected(peer_ip) {
                 // Retrieve the block locators.
                 match crate::helpers::get_block_locators(&self_clone.ledger) {
                     // Send a `Ping` message to the peer.
