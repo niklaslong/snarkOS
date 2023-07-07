@@ -31,6 +31,9 @@ version = "1.0"
 [dependencies.bytes]
 version = "1"
 
+[dependencies.console-subscriber]
+version = "0.1.10"
+
 [dependencies.futures]
 version = "0.3.27"
 features = [ "thread-pool" ]
@@ -73,7 +76,7 @@ version = "0.3"
 
 [dependencies.tokio]
 version = "1.28"
-features = [ "rt" ]
+features = [ "rt", "tracing" ]
 
 [dependencies.tokio-stream]
 version = "=0.1"

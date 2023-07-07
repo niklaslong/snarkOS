@@ -319,6 +319,7 @@ async fn start_server(primary: Primary<CurrentNetwork>, node_id: u16) {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // console_subscriber::init();
     initialize_logger(1);
 
     // Retrieve the command-line arguments.
