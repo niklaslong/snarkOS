@@ -32,7 +32,7 @@ macro_rules! test_disconnect {
             use deadline::deadline;
             use pea2pea::Pea2Pea;
             use snarkos_node_router::Outbound;
-            use snarkos_node_tcp::P2P;
+            use snarkos_node_tcp::{P2P, TcpExt};
             use std::time::Duration;
 
             // $crate::common::initialise_logger(2);
