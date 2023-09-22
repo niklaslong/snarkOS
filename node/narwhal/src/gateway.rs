@@ -972,7 +972,7 @@ impl<N: Network> Gateway<N> {
         // Note: the optional payloads are empty for now but could be used in future if needed.
 
         // -> e
-        framed.send(EventOrBytes::Bytes(Bytes::new())).await?;
+        framed.send(EventOrBytes::Bytes(Bytes::copy_from_slice(&self.local_ip().port().to_le_bytes()))).await?;
 
         // <- e, ee, s, es
         framed.try_next().await?;
@@ -1061,7 +1061,26 @@ impl<N: Network> Gateway<N> {
         // Note: the optional payloads are empty for now but could be used in future if needed.
 
         // <- e
-        framed.try_next().await?;
+        let listener_port = match framed.try_next().await? {
+            Some(EventOrBytes::Bytes(bytes)) => u16::from_le_bytes(
+                bytes
+                    .as_ref()
+                    .try_into()
+                    .map_err(|_| error(format!("Couldn't decode the listening port from '{peer_addr}'")))?,
+            ),
+            _ => {
+                return Err(error(format!("Didn't receive the listening port from '{peer_addr}'",)));
+            }
+        };
+
+        // Obtain the peer's listening address.
+        *peer_ip = Some(SocketAddr::new(peer_addr.ip(), listener_port));
+        let peer_ip = peer_ip.unwrap();
+
+        // Knowing the peer's listening address, ensure it is allowed to connect.
+        if let Err(forbidden_message) = self.ensure_peer_is_allowed(peer_ip) {
+            return Err(error(format!("{forbidden_message}")));
+        }
 
         // -> e, ee, s, es
         framed.send(EventOrBytes::Bytes(Bytes::new())).await?;
@@ -1081,14 +1100,6 @@ impl<N: Network> Gateway<N> {
         // Listen for the challenge request message.
         let peer_request = expect_event!(Event::ChallengeRequest, framed, peer_addr);
 
-        // Obtain the peer's listening address.
-        *peer_ip = Some(SocketAddr::new(peer_addr.ip(), peer_request.listener_port));
-        let peer_ip = peer_ip.unwrap();
-
-        // Knowing the peer's listening address, ensure it is allowed to connect.
-        if let Err(forbidden_message) = self.ensure_peer_is_allowed(peer_ip) {
-            return Err(error(format!("{forbidden_message}")));
-        }
         // Verify the challenge request. If a disconnect reason was returned, send the disconnect message and abort.
         if let Some(reason) = self.verify_challenge_request(peer_addr, &peer_request) {
             send_event(&mut framed, peer_addr, reason.into()).await?;
