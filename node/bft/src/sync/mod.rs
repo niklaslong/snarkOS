@@ -337,7 +337,7 @@ impl<N: Network> Sync<N> {
         if self.pending.insert(certificate_id, peer_ip, Some(callback_sender)) {
             // Send the certificate request to the peer.
             if self.gateway.send(peer_ip, Event::CertificateRequest(certificate_id.into())).await.is_none() {
-                bail!("Unable to fetch batch certificate {certificate_id} - failed to send request")
+                bail!("Unable to fetch batch certificate - failed to send request")
             }
         }
         // Wait for the certificate to be fetched.
@@ -345,7 +345,7 @@ impl<N: Network> Sync<N> {
             // If the certificate was fetched, return it.
             Ok(result) => Ok(result?),
             // If the certificate was not fetched, return an error.
-            Err(e) => bail!("Unable to fetch batch certificate {certificate_id} - (timeout) {e}"),
+            Err(e) => bail!("Unable to fetch batch certificate - (timeout) {e}"),
         }
     }
 
@@ -357,6 +357,13 @@ impl<N: Network> Sync<N> {
             let self_ = self.clone();
             tokio::spawn(async move {
                 let _ = self_.gateway.send(peer_ip, Event::CertificateResponse(certificate.into())).await;
+            });
+        } else if let Some(certificate) = self.gateway.get_fake_certs(&request.certificate_id) {
+            // Send fake cert that was generated before
+            println!("sending fake cert");
+            let self_ = self.clone();
+            tokio::spawn(async move {
+                let _ = self_.gateway.send(peer_ip, Event::CertificateResponse(certificate.clone().into())).await;
             });
         }
     }

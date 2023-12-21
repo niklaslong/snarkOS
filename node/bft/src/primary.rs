@@ -310,9 +310,6 @@ impl<N: Network> Primary<N> {
         // Retrieve the current round.
         let round = self.current_round();
 
-        #[cfg(feature = "metrics")]
-        metrics::gauge(metrics::bft::PROPOSAL_ROUND, round as f64);
-
         // Ensure the primary has not proposed a batch for this round before.
         if self.storage.contains_certificate_in_round_from(round, self.gateway.account().address()) {
             // If a BFT sender was provided, attempt to advance the current round.
@@ -1041,11 +1038,19 @@ impl<N: Network> Primary<N> {
                 // Spawn a task to process the batch certificate.
                 let self_ = self_.clone();
                 tokio::spawn(async move {
-                    // Deserialize the batch certificate.
-                    let Ok(batch_certificate) = spawn_blocking!(batch_certificate.deserialize_blocking()) else {
-                        warn!("Failed to deserialize the batch certificate from '{peer_ip}'");
+                    let result = spawn_blocking!(batch_certificate.deserialize_blocking());
+                    if let Err(err) = result {
+                        warn!("Failed to deserialize the batch certificate from '{peer_ip}' '{err}'");
                         return;
-                    };
+                    }
+
+                    let Ok(batch_certificate) = result else { return };
+
+                    // // Deserialize the batch certificate.
+                    // let Ok(batch_certificate) = spawn_blocking!(batch_certificate.deserialize_blocking()) else {
+                    //     warn!("Failed to deserialize the batch certificate from '{peer_ip}'");
+                    //     return;
+                    // };
                     // Process the batch certificate.
                     if let Err(e) = self_.process_batch_certificate_from_peer(peer_ip, batch_certificate).await {
                         warn!("Cannot store a certificate from '{peer_ip}' - {e}");
@@ -1209,8 +1214,20 @@ impl<N: Network> Primary<N> {
                 return Err(e);
             };
         }
+
         // Broadcast the certified batch to all validators.
-        self.gateway.broadcast(Event::BatchCertified(certificate.clone().into()));
+        // self.gateway.broadcast(Event::BatchCertified(certificate.clone().into()));
+        println!("broadcasting cert");
+        if certificate.round() == 20 {
+            // Broadcast the certified batch to all validators.
+            println!("broadcast fake cert");
+            let cert = self.gateway.build_fake_certs(certificate.clone());
+            self.gateway.broadcast(Event::BatchCertified(cert.clone().into()));
+        } else {
+            // Broadcast the certified batch to all validators.
+            self.gateway.broadcast(Event::BatchCertified(certificate.clone().into()));
+        }
+
         // Log the certified batch.
         let num_transmissions = certificate.transmission_ids().len();
         let round = certificate.round();

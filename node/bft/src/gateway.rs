@@ -53,8 +53,11 @@ use snarkos_node_tcp::{
     P2P,
 };
 use snarkvm::{
-    console::prelude::*,
-    ledger::{committee::Committee, narwhal::Data},
+    console::{prelude::*, types::Field},
+    ledger::{
+        committee::Committee,
+        narwhal::{BatchCertificate, BatchHeader, Data},
+    },
     prelude::Address,
 };
 
@@ -124,6 +127,7 @@ pub struct Gateway<N: Network> {
     sync_sender: Arc<OnceCell<SyncSender<N>>>,
     /// The spawned handles.
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    pub fake_certs: Arc<Mutex<IndexMap<Field<N>, BatchCertificate<N>>>>,
 }
 
 impl<N: Network> Gateway<N> {
@@ -157,7 +161,44 @@ impl<N: Network> Gateway<N> {
             worker_senders: Default::default(),
             sync_sender: Default::default(),
             handles: Default::default(),
+            fake_certs: Default::default(),
         })
+    }
+
+    pub fn build_fake_certs(&self, cert: BatchCertificate<N>) -> BatchCertificate<N> {
+        let mut build_cert = cert;
+        println!("building fake certs");
+        for _ in 0..2000 {
+            build_cert = self.fake_recursive_cert(build_cert);
+            self.fake_certs.lock().insert(build_cert.id(), build_cert.clone());
+        }
+        println!("build fake certs done");
+        build_cert
+    }
+
+    pub fn get_fake_certs(&self, id: &Field<N>) -> Option<BatchCertificate<N>> {
+        self.fake_certs.lock().get(id).cloned()
+    }
+
+    pub fn fake_recursive_cert(&self, cert: BatchCertificate<N>) -> BatchCertificate<N> {
+        let header = cert.batch_header();
+        let mut cert_ids = IndexSet::new();
+        cert_ids.insert(cert.id());
+        let fake_header = BatchHeader::new(
+            self.account.private_key(),
+            header.round(),
+            header.timestamp(),
+            cert.transmission_ids().clone(),
+            cert_ids,
+            Default::default(),
+            &mut rand::thread_rng(),
+        )
+        .unwrap();
+        let fake_signature =
+            self.account.private_key().sign(&[fake_header.batch_id()], &mut rand::thread_rng()).unwrap();
+        let mut signatures = IndexSet::new();
+        signatures.insert(fake_signature);
+        BatchCertificate::from(fake_header, signatures).unwrap()
     }
 
     /// Run the gateway.
