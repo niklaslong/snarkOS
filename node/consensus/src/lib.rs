@@ -335,6 +335,12 @@ impl<N: Network> Consensus<N> {
 
         // Create the candidate next block.
         let next_block = self.ledger.prepare_advance_to_next_quorum_block(subdag, transmissions)?;
+        info!(
+            "Attempting to advance to the next block round {} height {} {}",
+            next_block.round(),
+            next_block.height(),
+            next_block.ratifications()
+        );
         // Check that the block is well-formed.
         self.ledger.check_next_block(&next_block)?;
         // Advance to the next block.

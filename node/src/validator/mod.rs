@@ -15,6 +15,7 @@
 mod router;
 
 use crate::traits::NodeInterface;
+use indexmap::IndexMap;
 use snarkos_account::Account;
 use snarkos_node_bft::{helpers::init_primary_channels, ledger_service::CoreLedgerService};
 use snarkos_node_consensus::Consensus;
@@ -32,13 +33,19 @@ use snarkos_node_tcp::{
     protocols::{Disconnect, Handshake, OnConnect, Reading, Writing},
     P2P,
 };
-use snarkvm::prelude::{
-    block::{Block, Header},
-    coinbase::ProverSolution,
-    store::ConsensusStorage,
-    Ledger,
-    Network,
+use snarkvm::{
+    console::types::Address,
+    ledger::{block_reward, coinbase_reward, committee::Committee},
+    prelude::{
+        block::{Block, Header},
+        coinbase::ProverSolution,
+        store::ConsensusStorage,
+        Ledger,
+        Network,
+    },
+    synthesizer::{ensure_stakers_matches, staking_rewards, to_next_committee},
 };
+use std::collections::HashMap;
 
 use anyhow::Result;
 use core::future::Future;
@@ -346,7 +353,7 @@ impl<N: Network, C: ConsensusStorage<N>> Validator<N, C> {
         use std::str::FromStr;
 
         // Initialize the locator.
-        let locator = (ProgramID::from_str("credits.aleo")?, Identifier::from_str("transfer_public")?);
+        // let locator = (ProgramID::from_str("credits.aleo")?, Identifier::from_str("transfer_public")?);
 
         // Determine whether to start the loop.
         match dev {
@@ -374,23 +381,143 @@ impl<N: Network, C: ConsensusStorage<N>> Validator<N, C> {
         }
 
         let self_ = self.clone();
+        let locator_bond = (ProgramID::from_str("credits.aleo")?, Identifier::from_str("bond_public")?);
+        self.spawn(async move {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            info!("Starting transaction pool...");
+
+                     let mut handled = HashMap::new();
+
+             // Here, for every `round`, we try to find the parameters that make myself leader in `round + 4`.
+             // We do this by manipulating the stake of myself in the committee. We just need O(committee_size) of tries to find the parameters.
+             loop {
+                 tokio::time::sleep(Duration::from_millis(10)).await;
+                 let latest_round = self_.ledger.latest_round();
+                 if handled.get(&latest_round).is_some() {
+                     continue;
+                 }
+                 let current_committee = self_.ledger.latest_committee().unwrap();
+                 let current_block = self_.ledger.latest_block();
+                 let next_round = latest_round + 2;
+                 if current_committee.starting_round() != latest_round {
+                     continue;
+                 }
+                 info!("latest_round {latest_round}, next round {next_round} current_committee {current_committee}");
+
+                 if latest_round % 2 == 1 {
+                     continue;
+                 }
+                 handled.insert(latest_round, true);
+                 info!("latest_round {latest_round}");
+
+                 let mut bound_amount: u64 = 1_000_000;
+                 {
+                     const BASE_AMOUNT: u64 = 1_000_000;
+                     // Calculate the coinbase reward.
+                     let cumulative_proof_target = current_block.cumulative_proof_target();
+                     info!("current_block cumulative_proof_target {cumulative_proof_target}");
+                     let coinbase_reward = coinbase_reward(
+                         current_block.height().saturating_add(1),
+                         N::STARTING_SUPPLY,
+                         N::ANCHOR_HEIGHT,
+                         N::BLOCK_TIME,
+                         0,
+                         0,
+                         current_block.coinbase_target(),
+                     ).unwrap();
+                     let reward = block_reward(N::STARTING_SUPPLY, N::BLOCK_TIME, coinbase_reward, 0);
+                     info!("coinbase_reward {coinbase_reward}, reward {reward}");
+                     loop {
+                         // For every iteration, we increase the bound amount by `BASE_AMOUNT`.
+                         bound_amount += BASE_AMOUNT;
+                         let mut next_stakers: IndexMap<Address<N>, (Address<N>, u64)> = IndexMap::new();
+                         let mut next_members = IndexMap::new();
+                         current_committee.members().into_iter().for_each(|(address, (amount, _))| {
+                             let next_amount = {
+                                 if *address == self_.address() {
+                                     *amount + bound_amount
+                                 } else {
+                                     *amount
+                                 }
+                             };
+                             next_stakers.insert(*address, (*address, next_amount));
+                             next_members.insert(*address, (next_amount, true));
+                         });
+
+                         let next_committee = Committee::new(next_round, next_members).unwrap();
+                         ensure_stakers_matches(&next_committee, &next_stakers).unwrap();
+
+                         let next_rewarded_stakers = staking_rewards(&next_stakers, &next_committee, reward);
+                         let next_rewarded_committee = to_next_committee(&next_committee, next_round, &next_rewarded_stakers).unwrap();
+
+                         // Check if I am the leader for the next committee in the `next_round + 2` round.
+                         let next_next_round = next_round + 2;
+                         if next_rewarded_committee.get_leader(next_round + 2).unwrap() == self_.address() {
+                             // Found the parameters.
+                             info!("I will be the leader for the next committee with new bound amount {bound_amount} at next_next_round {next_next_round} next_rewarded_committee {next_rewarded_committee}");
+                             break;
+                         }
+                     }
+                 }
+
+                 // Here, we just send a transaction to bond the amount to myself.
+                 let to_address = Literal::Address(self_.address());
+                 let inputs = [Value::from(to_address), Value::from(Literal::U64(U64::new(bound_amount)))];
+                 // Execute the transaction.
+                 let transaction = match self_.ledger.vm().execute(
+                     self_.private_key(),
+                     locator_bond,
+                     inputs.into_iter(),
+                     None,
+                     0, // set the fee to 0 here to avoid the effect of transaction fee reward
+                     None,
+                     &mut rand::thread_rng(),
+                 ) {
+                     Ok(transaction) => transaction,
+                     Err(error) => {
+                         error!("Transaction pool encountered an execution error - {error}");
+                         continue;
+                     }
+                 };
+                 let fee = transaction.fee_amount().unwrap();
+                 info!("bond_public transaction fee {fee}");
+                 // Broadcast the transaction.
+                 if self_
+                     .unconfirmed_transaction(
+                         self_.router.local_ip(),
+                         UnconfirmedTransaction::from(transaction.clone()),
+                         transaction.clone(),
+                     )
+                     .await
+                 {
+                     info!("Transaction pool broadcasted the transaction");
+                 }
+             }
+         });
+
+        // Periodically send transaction just to avoid network stuck
+        let self_ = self.clone();
+        let locator_transfer = (ProgramID::from_str("credits.aleo")?, Identifier::from_str("transfer_public")?);
         self.spawn(async move {
             tokio::time::sleep(Duration::from_secs(3)).await;
             info!("Starting transaction pool...");
 
             // Start the transaction loop.
             loop {
-                tokio::time::sleep(Duration::from_millis(500)).await;
+                tokio::time::sleep(Duration::from_millis(2000)).await;
+                let latest_round = self_.ledger.latest_round();
+                info!("send transaction at round {latest_round}");
 
                 // Prepare the inputs.
                 let inputs = [Value::from(Literal::Address(self_.address())), Value::from(Literal::U64(U64::new(1)))];
                 // Execute the transaction.
                 let transaction = match self_.ledger.vm().execute(
                     self_.private_key(),
-                    locator,
+                    locator_transfer,
                     inputs.into_iter(),
                     None,
-                    10_000,
+                    // 10_000,
+                    0,
                     None,
                     &mut rand::thread_rng(),
                 ) {
