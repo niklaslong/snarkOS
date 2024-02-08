@@ -20,11 +20,7 @@ use snarkos_node_bft::ledger_service::CoreLedgerService;
 use snarkos_node_rest::Rest;
 use snarkos_node_router::{
     messages::{Message, NodeType, UnconfirmedSolution},
-    Heartbeat,
-    Inbound,
-    Outbound,
-    Router,
-    Routing,
+    Heartbeat, Inbound, Outbound, Router, Routing,
 };
 use snarkos_node_sync::{BlockSync, BlockSyncMode};
 use snarkos_node_tcp::{
@@ -90,7 +86,7 @@ impl<N: Network, C: ConsensusStorage<N>> Client<N, C> {
         let signal_node = Self::handle_signals(shutdown.clone());
 
         // Initialize the ledger.
-        let ledger = Ledger::<N, C>::load(genesis.clone(), dev)?;
+        let ledger = Ledger::<N, C>::load(genesis.clone(), dev.into())?;
         // TODO: Remove me after Phase 3.
         let ledger = crate::phase_3_reset(ledger, dev)?;
         // Initialize the CDN.

@@ -21,11 +21,7 @@ use snarkos_node_consensus::Consensus;
 use snarkos_node_rest::Rest;
 use snarkos_node_router::{
     messages::{NodeType, PuzzleResponse, UnconfirmedSolution, UnconfirmedTransaction},
-    Heartbeat,
-    Inbound,
-    Outbound,
-    Router,
-    Routing,
+    Heartbeat, Inbound, Outbound, Router, Routing,
 };
 use snarkos_node_sync::{BlockSync, BlockSyncMode};
 use snarkos_node_tcp::{
@@ -36,8 +32,7 @@ use snarkvm::prelude::{
     block::{Block, Header},
     coinbase::ProverSolution,
     store::ConsensusStorage,
-    Ledger,
-    Network,
+    Ledger, Network,
 };
 
 use anyhow::Result;
@@ -90,7 +85,7 @@ impl<N: Network, C: ConsensusStorage<N>> Validator<N, C> {
         let signal_node = Self::handle_signals(shutdown.clone());
 
         // Initialize the ledger.
-        let ledger = Ledger::load(genesis, dev)?;
+        let ledger = Ledger::load(genesis, dev.into())?;
         // TODO: Remove me after Phase 3.
         let ledger = crate::phase_3_reset(ledger, dev)?;
         // Initialize the CDN.
@@ -452,8 +447,7 @@ mod tests {
     use super::*;
     use snarkvm::prelude::{
         store::{helpers::memory::ConsensusMemory, ConsensusStore},
-        Testnet3,
-        VM,
+        Testnet3, VM,
     };
 
     use anyhow::bail;
