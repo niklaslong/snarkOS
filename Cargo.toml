@@ -45,8 +45,9 @@ version = "=0.1.24"
 default-features = false
 
 [workspace.dependencies.snarkvm]
-git = "https://github.com/AleoNet/snarkVM.git"
-rev = "140ff26"
+git = "https://github.com/niklaslong/snarkVM.git"
+# rev = "140ff26"
+branch = "fix/atomics-logs"
 #version = "=0.16.18"
 features = [ "circuit", "console", "rocks" ]
 
