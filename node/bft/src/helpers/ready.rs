@@ -22,19 +22,19 @@ use snarkvm::{
     },
 };
 
-use indexmap::{IndexMap, IndexSet};
-use std::collections::{HashMap, VecDeque, hash_map::Entry::Vacant};
+use indexmap::IndexSet;
+use std::{
+    collections::{HashMap, VecDeque, hash_map::Entry::Vacant},
+    sync::Arc,
+};
 
 #[derive(Clone, Debug)]
 pub struct Ready<N: Network> {
     /// Maps each transmission ID to its logical index (physical index + offset)
     /// in `transmissions`.
-    transmission_ids: HashMap<TransmissionID<N>, isize>,
+    transmission_ids: HashMap<TransmissionID<N>, Arc<(TransmissionID<N>, Transmission<N>)>>,
     /// An ordered collection of (transmission ID, transmission).
-    transmissions: VecDeque<(TransmissionID<N>, Transmission<N>)>,
-    /// An offset used to adjust logical indices when elements are inserted or
-    /// removed at the front.
-    offset: isize,
+    transmissions: VecDeque<Arc<(TransmissionID<N>, Transmission<N>)>>,
 }
 
 impl<N: Network> Default for Ready<N> {
@@ -47,7 +47,7 @@ impl<N: Network> Default for Ready<N> {
 impl<N: Network> Ready<N> {
     /// Initializes a new instance of the ready queue.
     pub fn new() -> Self {
-        Self { transmission_ids: Default::default(), transmissions: Default::default(), offset: Default::default() }
+        Self { transmission_ids: Default::default(), transmissions: Default::default() }
     }
 
     /// Returns `true` if the ready queue is empty.
@@ -81,15 +81,21 @@ impl<N: Network> Ready<N> {
     }
 
     /// Returns the transmissions in the ready queue.
-    pub fn transmissions(&self) -> IndexMap<TransmissionID<N>, Transmission<N>> {
-        self.transmissions.iter().cloned().collect()
+    pub fn transmissions(&self) -> Vec<(TransmissionID<N>, Transmission<N>)> {
+        self.transmissions
+            .iter()
+            .map(|arc| {
+                let (id, transmission) = &**arc;
+                (*id, transmission.clone())
+            })
+            .collect()
     }
 
     /// Returns the solutions in the ready queue.
     pub fn solutions(&self) -> Vec<(SolutionID<N>, Data<Solution<N>>)> {
         self.transmissions
             .iter()
-            .filter_map(|(id, transmission)| match (id, transmission) {
+            .filter_map(|arc| match &**arc {
                 (TransmissionID::Solution(id, _), Transmission::Solution(solution)) => Some((*id, solution.clone())),
                 _ => None,
             })
@@ -100,7 +106,7 @@ impl<N: Network> Ready<N> {
     pub fn transactions(&self) -> Vec<(N::TransactionID, Data<Transaction<N>>)> {
         self.transmissions
             .iter()
-            .filter_map(|(id, transmission)| match (id, transmission) {
+            .filter_map(|arc| match &**arc {
                 (TransmissionID::Transaction(id, _), Transmission::Transaction(tx)) => Some((*id, tx.clone())),
                 _ => None,
             })
@@ -116,21 +122,21 @@ impl<N: Network> Ready<N> {
 
     /// Returns the transmission, given the specified `transmission ID`.
     pub fn get(&self, transmission_id: impl Into<TransmissionID<N>>) -> Option<Transmission<N>> {
-        self.transmission_ids
-            .get(&transmission_id.into())
-            .and_then(|&index| self.transmissions.get((index - self.offset) as usize))
-            .map(|(_, transmission)| transmission.clone())
+        self.transmission_ids.get(&transmission_id.into()).map(|arc| {
+            let (_, transmission) = &**arc;
+            transmission.clone()
+        })
     }
 
     /// Inserts the specified (`transmission ID`, `transmission`) to the ready queue.
     /// Returns `true` if the transmission is new, and was added to the ready queue.
     pub fn insert(&mut self, transmission_id: impl Into<TransmissionID<N>>, transmission: Transmission<N>) -> bool {
-        let physical_index = self.transmissions.len();
         let transmission_id = transmission_id.into();
 
         if let Vacant(entry) = self.transmission_ids.entry(transmission_id) {
-            entry.insert(physical_index as isize + self.offset);
-            self.transmissions.push_back((transmission_id, transmission));
+            let arc = Arc::new((transmission_id, transmission));
+            entry.insert(arc.clone());
+            self.transmissions.push_back(arc);
             true
         } else {
             false
@@ -146,12 +152,11 @@ impl<N: Network> Ready<N> {
         transmission: Transmission<N>,
     ) -> bool {
         let transmission_id = transmission_id.into();
-        if let Vacant(entry) = self.transmission_ids.entry(transmission_id) {
-            self.offset -= 1;
-            let index = self.offset;
 
-            entry.insert(index);
-            self.transmissions.push_front((transmission_id, transmission));
+        if let Vacant(entry) = self.transmission_ids.entry(transmission_id) {
+            let arc = Arc::new((transmission_id, transmission));
+            entry.insert(arc.clone());
+            self.transmissions.push_front(arc);
             true
         } else {
             false
@@ -160,17 +165,11 @@ impl<N: Network> Ready<N> {
 
     /// Removes and returns the transmission at the front of the queue.
     pub fn remove_front(&mut self) -> Option<(TransmissionID<N>, Transmission<N>)> {
-        if let Some((transmission_id, transmission)) = self.transmissions.pop_front() {
-            self.transmission_ids.remove(&transmission_id);
-
-            if self.transmission_ids.is_empty() {
-                debug_assert!(self.transmissions.is_empty());
-                self.offset = 0;
-            } else {
-                self.offset += 1;
-            }
-
-            Some((transmission_id, transmission))
+        if let Some(arc) = self.transmissions.pop_front() {
+            // TODO: might be able to avoid the clone here.
+            let (transmission_id, transmission) = &*arc;
+            self.transmission_ids.remove(transmission_id);
+            Some((*transmission_id, transmission.clone()))
         } else {
             None
         }
@@ -178,14 +177,7 @@ impl<N: Network> Ready<N> {
 
     /// Removes all solution transmissions from the queue (O(n)).
     pub fn clear_solutions(&mut self) {
-        self.transmissions.retain(|(_, transmission)| !matches!(transmission, Transmission::Solution(_)));
-
-        // Rebuild the index and reset the offset.
-        self.transmission_ids.clear();
-        self.offset = 0;
-        for (i, (id, _)) in self.transmissions.iter().enumerate() {
-            self.transmission_ids.insert(*id, i as isize);
-        }
+        self.transmissions.retain(|arc| !matches!(&**arc, (_, Transmission::Solution(_))));
     }
 }
 
@@ -264,8 +256,6 @@ mod tests {
         // Check the transmission IDs.
         assert_eq!(ready.transmission_ids(), IndexSet::new());
 
-        dbg!(ready.offset);
-
         // Check the transmissions.
         assert_eq!(transmissions, vec![
             (solution_id_1, solution_1),
@@ -328,9 +318,7 @@ mod tests {
 
         // Insert the two solutions at the front, check the offset.
         assert!(ready.insert_front(solution_id_1, solution_1.clone()));
-        assert_eq!(ready.offset, -1);
         assert!(ready.insert_front(solution_id_2, solution_2.clone()));
-        assert_eq!(ready.offset, -2);
 
         // Check retrieval.
         assert_eq!(ready.get(solution_id_1), Some(solution_1.clone()));
@@ -339,12 +327,10 @@ mod tests {
         // Remove from the front, offset should have increased by 1.
         let removed_solution = ready.remove_front().unwrap();
         assert_eq!(removed_solution, (solution_id_2, solution_2));
-        assert_eq!(ready.offset, -1);
 
         // Remove another transmission from the front, the offset should be back to 0.
         let removed_solution = ready.remove_front().unwrap();
         assert_eq!(removed_solution, (solution_id_1, solution_1));
-        assert_eq!(ready.offset, 0);
     }
 
     #[test]
@@ -379,20 +365,16 @@ mod tests {
 
         // Insert the solution, check the offset should be decremented.
         assert!(ready.insert_front(solution_id_1, solution_1.clone()));
-        assert_eq!(ready.offset, -1);
 
         // Insert the transaction and the second solution, the offset should remain unchanged.
         assert!(ready.insert(transaction_id, transaction.clone()));
-        assert_eq!(ready.offset, -1);
         assert!(ready.insert(solution_id_2, solution_2.clone()));
-        assert_eq!(ready.offset, -1);
 
         // Clear all solution transmissions.
         ready.clear_solutions();
         // Only the transaction should remain.
         assert_eq!(ready.num_transmissions(), 1);
         // The offset should now be reset to 0.
-        assert_eq!(ready.offset, 0);
         // The remaining transmission is the transaction.
         assert_eq!(ready.get(transaction_id), Some(transaction));
     }

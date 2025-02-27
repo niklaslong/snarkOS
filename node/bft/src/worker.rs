@@ -33,7 +33,7 @@ use snarkvm::{
 };
 
 use colored::Colorize;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexSet;
 use parking_lot::{Mutex, RwLock};
 use rand::seq::IteratorRandom;
 use std::{future::Future, net::SocketAddr, sync::Arc, time::Duration};
@@ -138,7 +138,7 @@ impl<N: Network> Worker<N> {
     }
 
     /// Returns the transmissions in the ready queue.
-    pub fn transmissions(&self) -> IndexMap<TransmissionID<N>, Transmission<N>> {
+    pub fn transmissions(&self) -> Vec<(TransmissionID<N>, Transmission<N>)> {
         self.ready.read().transmissions()
     }
 
@@ -1001,6 +1001,7 @@ mod prop_tests {
         ledger::committee::{Committee, MIN_VALIDATOR_STAKE},
     };
 
+    use indexmap::IndexMap;
     use test_strategy::proptest;
 
     type CurrentNetwork = snarkvm::prelude::MainnetV0;
