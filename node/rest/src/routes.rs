@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+
 use super::*;
 use snarkos_node_router::{SYNC_LENIENCY, messages::UnconfirmedSolution};
 use snarkvm::{
@@ -39,6 +41,12 @@ pub(crate) struct BlockRange {
 pub(crate) struct Metadata {
     metadata: Option<bool>,
     all: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(bound(deserialize = "N: Network"))]
+pub(crate) struct CommitmentsRequest<N: Network> {
+    commitments: Vec<Field<N>>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
@@ -270,6 +278,19 @@ impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
         Path(commitment): Path<Field<N>>,
     ) -> Result<ErasedJson, RestError> {
         Ok(ErasedJson::pretty(rest.ledger.get_state_path_for_commitment(&commitment)?))
+    }
+
+    /// POST /<network>/statePaths
+    pub(crate) async fn get_state_paths_for_commitments(
+        State(rest): State<Self>,
+        Json(request): Json<CommitmentsRequest<N>>,
+    ) -> Result<ErasedJson, RestError> {
+        let mut map = HashMap::with_capacity(request.commitments.len());
+        for commitment in request.commitments {
+            map.insert(commitment, rest.ledger.get_state_path_for_commitment(&commitment)?);
+        }
+
+        Ok(ErasedJson::pretty(map))
     }
 
     // GET /<network>/stateRoot/latest
